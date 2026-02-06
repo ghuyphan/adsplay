@@ -6,7 +6,7 @@ import { getDb, saveDb, Video, Profile } from './db';
 import multer from 'multer';
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
@@ -161,6 +161,6 @@ app.use((req, res) => {
 });
 
 // Start
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`Server running at http://0.0.0.0:${PORT}`);
 });
