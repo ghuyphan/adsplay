@@ -1,0 +1,165 @@
+<div
+    class="min-h-screen bg-brand-light dark:bg-transparent font-sans text-slate-900 dark:text-white transition-colors duration-300 flex flex-col md:flex-row overflow-hidden">
+
+    <!-- Mobile Backdrop -->
+    <div *ngIf="isMobileMenuOpen()" class="fixed inset-0 bg-slate-900/50 z-40 md:hidden"
+        (click)="isMobileMenuOpen.set(false)">
+    </div>
+
+    <!-- Sidebar -->
+    <aside
+        class="fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-brand-surface border-r border-slate-200 dark:border-white/10 flex flex-col transform transition-transform duration-300 md:relative md:translate-x-0 shadow-2xl md:shadow-none"
+        [class.-translate-x-full]="!isMobileMenuOpen()">
+        <!-- Logo Area -->
+        <div class="p-6 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2 text-brand-primary">
+                <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span class="text-xl font-bold tracking-tight">ADSPLAY</span>
+            </div>
+            <!-- Close button for mobile -->
+            <button class="md:hidden text-slate-500 hover:text-brand-primary" (click)="isMobileMenuOpen.set(false)">
+                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="flex-1 px-4 py-4 flex flex-col gap-2 overflow-y-auto">
+            <button (click)="activeTab = 'videos'; isMobileMenuOpen.set(false)"
+                [class.bg-brand-primary]="activeTab === 'videos'" [class.text-white]="activeTab === 'videos'"
+                [class.text-slate-600]="activeTab !== 'videos'" [class.dark:text-slate-400]="activeTab !== 'videos'"
+                [class.hover:bg-slate-100]="activeTab !== 'videos'"
+                [class.dark:hover:bg-white/5]="activeTab !== 'videos'"
+                class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium whitespace-nowrap">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                </svg>
+                Kho Video
+            </button>
+
+            <button (click)="activeTab = 'profiles'; isMobileMenuOpen.set(false)"
+                [class.bg-brand-primary]="activeTab === 'profiles'" [class.text-white]="activeTab === 'profiles'"
+                [class.text-slate-600]="activeTab !== 'profiles'" [class.dark:text-slate-400]="activeTab !== 'profiles'"
+                [class.hover:bg-slate-100]="activeTab !== 'profiles'"
+                [class.dark:hover:bg-white/5]="activeTab !== 'profiles'"
+                class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium whitespace-nowrap">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                Quản Lý Màn Hình
+            </button>
+        </nav>
+
+        <!-- Bottom Actions (Desktop & Mobile) -->
+        <div class="p-4 border-t border-slate-200 dark:border-white/10 flex flex-col gap-2">
+            <app-theme-toggle></app-theme-toggle>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 relative overflow-hidden flex flex-col h-[calc(100vh-theme('spacing.20'))] md:h-screen">
+        <!-- Background Orbs -->
+        <div
+            class="absolute -top-[20%] -right-[20%] w-[62.5rem] h-[62.5rem] bg-brand-primary opacity-5 rounded-full pointer-events-none z-0">
+        </div>
+
+        <!-- Header -->
+        <header class="relative z-10 px-6 py-6 md:py-8 flex justify-between items-center shrink-0">
+            <div class="flex items-center gap-4">
+                <!-- Mobile Hamburger -->
+                <button class="md:hidden p-2 -ml-2 text-slate-600 dark:text-slate-300 hover:text-brand-primary"
+                    (click)="isMobileMenuOpen.set(true)">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                </button>
+
+                <div>
+                    <h1 class="text-xl font-bold text-slate-900 dark:text-white">
+                        {{ activeTab === 'videos' ? 'Kho Video' : 'Quản Lý Màn Hình' }}
+                    </h1>
+                    <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                        {{ activeTab === 'videos' ? 'Quản lý và tải lên nội dung' : 'Cấu hình thiết bị phát' }}
+                    </p>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <button
+                    class="w-10 h-10 rounded-full bg-slate-200 dark:bg-white/10 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-white/20 transition-colors">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Dynamic Content Area -->
+        <div class="relative z-10 flex-1 px-6 pb-6 overflow-y-auto min-h-0">
+            @if (loading()) {
+            <div class="flex flex-col items-center justify-center py-20 animate-fade-in">
+                <div class="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spin">
+                </div>
+                <div class="mt-4 text-brand-primary font-medium animate-pulse">Đang tải dữ liệu...</div>
+            </div>
+            } @else {
+            <!-- Dashboard Widgets (Contextual) -->
+            <div class="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6 shrink-0">
+                <!-- Widget 1: System Status -->
+                <div
+                    class="p-6 rounded-2xl bg-white dark:bg-brand-surface border border-slate-200 dark:border-white/10 shadow-sm flex items-center justify-between">
+                    <div>
+                        <h3 class="font-bold text-slate-700 dark:text-slate-200">Trạng Thái Hệ Thống</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Máy chủ hoạt động bình thường</p>
+                    </div>
+                    <div class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-2"
+                        [class.bg-emerald-100]="isSystemOnline()" [class.text-emerald-700]="isSystemOnline()"
+                        [class.bg-red-100]="!isSystemOnline()" [class.text-red-700]="!isSystemOnline()">
+                        <span class="w-2 h-2 rounded-full bg-current"></span>
+                        {{ isSystemOnline() ? 'Online' : 'Offline' }}
+                    </div>
+                </div>
+
+                <!-- Widget 2: Player Link -->
+                <div
+                    class="p-6 rounded-2xl bg-white dark:bg-brand-surface border border-slate-200 dark:border-white/10 shadow-sm flex flex-col justify-center">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="font-bold text-slate-700 dark:text-slate-200">Liên Kết Trình Phát</h3>
+                        <button (click)="copyUrl()"
+                            class="text-xs text-brand-primary hover:underline font-bold uppercase tracking-wider">Sao
+                            Chép</button>
+                    </div>
+                    <div
+                        class="bg-slate-100 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs font-mono text-slate-600 dark:text-slate-300 truncate">
+                        {{ playerUrl() }}
+                    </div>
+                </div>
+            </div>
+
+            <div *ngIf="activeTab === 'videos'" class="animate-fade-in h-full pb-20">
+                <app-video-list [videos]="videos()" (upload)="onUpload($event)" (delete)="onDeleteVideo($event)">
+                </app-video-list>
+            </div>
+
+            <div *ngIf="activeTab === 'profiles'" class="h-full pb-20">
+                <app-profile-manager [profiles]="profiles()" [videos]="videos()" (refresh)="refreshData()">
+                </app-profile-manager>
+            </div>
+            }
+        </div>
+    </main>
+    <!-- Confirm Delete Video Modal -->
+    <app-confirm-modal [isOpen]="!!videoDeletingId()" title="Xóa Video?"
+        message="Hành động này không thể hoàn tác. Video sẽ bị xóa vĩnh viễn khỏi hệ thống." confirmText="Xóa Video"
+        (confirm)="confirmDeleteVideo()" (cancel)="cancelDeleteVideo()">
+    </app-confirm-modal>
+</div>

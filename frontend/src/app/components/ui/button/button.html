@@ -1,0 +1,4 @@
+<button [type]="type" [className]="classes" [disabled]="disabled" (click)="onClick.emit($event)">
+    <ng-content></ng-content>
+    {{ label }}
+</button>

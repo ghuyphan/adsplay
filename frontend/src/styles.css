@@ -1,0 +1,105 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    :root {
+        /* Light Theme */
+        --color-primary: 0 131 155;
+        /* #00839b */
+        --color-secondary: 0 110 150;
+        /* #006e96 */
+        --color-bg: 248 250 252;
+        /* #f8fafc */
+        --color-surface: 255 255 255;
+        /* #ffffff */
+
+        --color-success: 22 163 74;
+        /* #16a34a */
+        --color-warning: 245 158 11;
+        /* #f59e0b */
+        --color-danger: 220 53 69;
+        /* #dc3545 */
+    }
+
+    .dark {
+        /* Dark Theme */
+        --color-primary: 45 212 191;
+        /* #2dd4bf */
+        --color-secondary: 56 189 248;
+        /* #38bdf8 */
+        --color-bg: 0 0 0;
+        /* #000000 */
+        --color-surface: 24 24 27;
+        /* #18181b */
+
+        --color-success: 74 222 128;
+        /* #4ade80 */
+        --color-warning: 251 191 36;
+        /* #fbbf24 */
+        --color-danger: 248 113 113;
+        /* #f87171 */
+    }
+}
+
+/* Custom Global Styles */
+body {
+    @apply font-sans antialiased transition-colors duration-300;
+    @apply bg-brand-light text-slate-900 dark:text-white;
+}
+
+/* Dark Mode Background Specifics */
+.dark body {
+    /* Optional: Subtle gradient overlay for depth, keeping semantics */
+    background-image: radial-gradient(circle at 50% 0%, #1e293b 0%, #000000 100%);
+}
+
+@layer utilities {
+    .glass-panel {
+        /* Light Mode Glass */
+        @apply bg-white/95 border border-slate-200 shadow-xl;
+        /* Dark Mode Glass */
+        @apply dark:bg-slate-800/50 dark:border-white/10;
+    }
+
+    .text-glow {
+        /* Light Mode Glow (subtler) */
+        text-shadow: 0 0 10px rgba(99, 102, 241, 0.3);
+    }
+
+    .dark .text-glow {
+        /* Dark Mode Glow */
+        text-shadow: 0 0 10px rgba(99, 102, 241, 0.6);
+    }
+}
+
+/* Animations */
+@keyframes scale-up {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.animate-scale-up {
+    animation: scale-up 0.2s ease-out forwards;
+}
+
+@keyframes fade-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.animate-fade-in {
+    animation: fade-in 0.2s ease-out forwards;
+}

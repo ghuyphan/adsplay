@@ -1,0 +1,24 @@
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Build output
+dist/
+/out-tsc
+/bazel-out
+
+# Backend
+backend/uploads/
+
+# IDEs
+.idea/
+.vscode/
+*.sublime-workspace
+.DS_Store
+
+# Environment
+.env
+
+# Logs
+*.log
