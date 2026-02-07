@@ -15,6 +15,7 @@ export class Player implements OnInit, OnDestroy {
   allProfiles = signal<Profile[]>([]);
   currentVideoIndex = signal(0);
   loading = signal(true);
+  showUnmuteOverlay = signal(false);
 
   @ViewChild('videoPlayer') videoPlayer!: ElementRef<HTMLVideoElement>;
   @ViewChild('container') container!: ElementRef<HTMLDivElement>;
@@ -53,10 +54,33 @@ export class Player implements OnInit, OnDestroy {
     this.isFullscreen.set(!!document.fullscreenElement);
 
     document.addEventListener('fullscreenchange', this.onFullscreenChangeBound);
+
+    // Start Heartbeat
+    this.startHeartbeat();
   }
 
   ngOnDestroy() {
     document.removeEventListener('fullscreenchange', this.onFullscreenChangeBound);
+    if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
+  }
+
+  private heartbeatInterval: any;
+  startHeartbeat() {
+    // Send immediately if we have a profile loaded
+    const sendPulse = () => {
+      const p = this.profile();
+      if (p && p.id) {
+        this.api.sendHeartbeat(p.id).subscribe({
+          error: (e) => console.error('Heartbeat failed', e)
+        });
+      }
+    };
+
+    // Poll every 30 seconds
+    this.heartbeatInterval = setInterval(sendPulse, 30000);
+
+    // Also trigger one shortly after load (once profile is likely set)
+    // Or we can trigger it in loadProfileByName
   }
 
   loadAllProfiles() {
@@ -88,6 +112,8 @@ export class Player implements OnInit, OnDestroy {
               // Auto-start is handled by the template rendering the video element.
               // We just need to trigger play().
               this.triggerPlay();
+              // Send initial heartbeat
+              this.api.sendHeartbeat(found.id).subscribe();
             },
             error: (e) => {
               console.error("Failed to load details", e);
@@ -135,16 +161,33 @@ export class Player implements OnInit, OnDestroy {
     try {
       this.videoPlayer.nativeElement.muted = false;
       await this.videoPlayer.nativeElement.play();
+      this.showUnmuteOverlay.set(false);
     } catch (err) {
       console.warn("Autoplay with sound failed, falling back to muted", err);
       // Fallback for browsers blocking unmuted autoplay
       this.videoPlayer.nativeElement.muted = true;
       try {
         await this.videoPlayer.nativeElement.play();
+        // If muted play works, show overlay to let user unmute
+        this.showUnmuteOverlay.set(true);
       } catch (e) {
         console.error("Autoplay failed completely", e);
       }
     }
+  }
+
+  interact() {
+    this.unmuteAndPlay();
+    if (!this.isFullscreen()) {
+      this.toggleFullscreen();
+    }
+  }
+
+  unmuteAndPlay() {
+    if (!this.videoPlayer) return;
+    this.videoPlayer.nativeElement.muted = false;
+    this.videoPlayer.nativeElement.play().catch(e => console.error("Unmute play failed", e));
+    this.showUnmuteOverlay.set(false);
   }
 
   onVideoEnded() {
@@ -152,21 +195,43 @@ export class Player implements OnInit, OnDestroy {
     if (!p || !p.videos || p.videos.length === 0) return;
 
     let nextIndex = this.currentVideoIndex() + 1;
-    if (nextIndex >= p.videos.length) {
-      nextIndex = 0;
-    }
 
-    // If single video loop instantly
-    if (this.currentVideoIndex() === 0 && p.videos.length === 1) {
-      this.videoPlayer.nativeElement.currentTime = 0;
-      this.videoPlayer.nativeElement.play();
-    } else {
-      this.currentVideoIndex.set(nextIndex);
-      // Wait for src change detection then play
-      setTimeout(() => {
-        this.videoPlayer.nativeElement.play();
+    // Check if we reached the end of the playlist
+    if (nextIndex >= p.videos.length) {
+      console.log('Playlist ended, checking for updates...');
+      // Fetch latest profile data
+      this.api.getProfile(p.id).subscribe({
+        next: (updatedProfile) => {
+          this.profile.set(updatedProfile);
+
+          // Check if we still have videos after update
+          if (updatedProfile.videos && updatedProfile.videos.length > 0) {
+            this.currentVideoIndex.set(0);
+            this.playWithDelay();
+          } else {
+            console.warn('Playlist became empty after update.');
+          }
+        },
+        error: (err) => {
+          console.error('Failed to auto-update playlist, looping local copy', err);
+          // Fallback: loop local copy
+          this.currentVideoIndex.set(0);
+          this.playWithDelay();
+        }
       });
+    } else {
+      // Normal progression
+      this.currentVideoIndex.set(nextIndex);
+      this.playWithDelay();
     }
+  }
+
+  private playWithDelay() {
+    setTimeout(() => {
+      if (this.videoPlayer && this.videoPlayer.nativeElement) {
+        this.videoPlayer.nativeElement.play().catch(e => console.error("Play failed", e));
+      }
+    });
   }
 
   toggleFullscreen() {

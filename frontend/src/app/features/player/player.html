@@ -88,41 +88,32 @@
             (click)="toggleFullscreen()">
         </video>
 
-        <!-- Overlay Controls (Hidden by default, hover to show) -->
-        <div
-            class="absolute top-6 left-6 opacity-0 group-hover/player:opacity-100 transition-opacity duration-300 z-[60] flex space-x-4">
-            <button (click)="backToSelection()"
-                class="bg-black/80 border border-white/10 text-white px-6 py-3 rounded-full flex items-center space-x-2 hover:bg-brand-primary hover:border-brand-primary transition-all text-sm font-bold uppercase tracking-wider shadow-lg">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-                <span>Quay Lại</span>
-            </button>
-            <button (click)="toggleFullscreen()"
-                class="bg-black/80 border border-white/10 text-white p-3 rounded-full hover:bg-brand-primary hover:border-brand-primary transition-all shadow-lg"
-                title="Toàn Màn Hình">
-                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                </svg>
-            </button>
-        </div>
+        <!-- Overlay Controls Removed for Ads Mode -->
     </div>
 
-    <!-- Fullscreen Request Overlay (Kiosk Mode) -->
-    @if (!isFullscreen()) {
-    <div (click)="toggleFullscreen()"
-        class="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center cursor-pointer animate-fade-in group/overlay">
+
+    <!-- Consolidated Overlay (Unmute / Fullscreen) -->
+    @if (!isFullscreen() || showUnmuteOverlay()) {
+    <div (click)="interact()"
+        class="absolute inset-0 z-[70] bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center cursor-pointer animate-fade-in group/overlay">
         <div
-            class="w-24 h-24 rounded-full bg-brand-primary/10 border-2 border-brand-primary flex items-center justify-center mb-6 group-hover/overlay:scale-110 transition-transform duration-300 shadow-[0_0_30px_rgba(45,212,191,0.3)]">
-            <svg class="w-10 h-10 text-brand-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            class="w-20 h-20 rounded-full bg-white/10 border border-white/30 flex items-center justify-center mb-6 group-hover/overlay:scale-110 group-hover/overlay:bg-brand-primary group-hover/overlay:border-brand-primary transition-all duration-300 shadow-[0_0_30px_rgba(255,255,255,0.1)]">
+            <svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                @if (!isFullscreen()) {
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                } @else {
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                }
             </svg>
         </div>
-        <h2 class="text-white text-2xl font-bold uppercase tracking-[0.2em] animate-pulse">Chạm Để Phóng To</h2>
-        <p class="text-slate-400 mt-2 text-sm">Chế độ hiển thị toàn màn hình</p>
+        <h2 class="text-white text-xl font-bold uppercase tracking-[0.2em] animate-pulse">
+            {{ !isFullscreen() ? 'Chạm Để Phóng To' : 'Chạm Để Bật Tiếng' }}
+        </h2>
+        <p class="text-slate-300 mt-2 text-xs font-medium tracking-wide opacity-80">
+            {{ !isFullscreen() ? 'Chế độ hiển thị toàn màn hình' : 'Video đang phát không tiếng' }}
+        </p>
     </div>
     }
     }

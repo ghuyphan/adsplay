@@ -1,9 +1,9 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Button } from '../ui/button/button';
-import { Video, Profile, ApiService } from '../../services/api.service';
-import { ConfirmModal } from '../ui/confirm-modal/confirm-modal';
+import { Button } from '../../../../shared/ui/button/button';
+import { Video, Profile, ApiService } from '../../../../services/api.service';
+import { ConfirmModal } from '../../../../shared/ui/confirm-modal/confirm-modal';
 
 @Component({
   selector: 'app-profile-manager',
@@ -122,5 +122,11 @@ export class ProfileManager {
 
   getPlayerUrl(name: string): string {
     return `${window.location.origin}/player/${name}`;
+  }
+
+  isOnline(lastSeen?: string): boolean {
+    if (!lastSeen) return false;
+    const diff = Date.now() - new Date(lastSeen).getTime();
+    return diff < 60000; // Online if seen in last 60s
   }
 }

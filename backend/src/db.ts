@@ -15,6 +15,7 @@ export interface Profile {
     id: string;
     name: string;
     videoIds: string[]; // List of video IDs assigned to this profile
+    lastSeen?: string; // ISO timestamp of last heartbeat
 }
 
 export interface DatabaseSchema {

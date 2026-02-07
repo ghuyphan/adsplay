@@ -15,6 +15,7 @@ export interface Profile {
     name: string;
     videoIds: string[];
     videos?: Video[]; // enriched
+    lastSeen?: string;
 }
 
 @Injectable({
@@ -57,5 +58,13 @@ export class ApiService {
 
     deleteProfile(id: string): Observable<any> {
         return this.http.delete(`${this.apiUrl}/profiles/${id}`);
+    }
+
+    getSystemStatus(): Observable<{ online: boolean; uptime: number; localIps: string[] }> {
+        return this.http.get<{ online: boolean; uptime: number; localIps: string[] }>(`${this.apiUrl}/system/status`);
+    }
+
+    sendHeartbeat(profileId: string): Observable<any> {
+        return this.http.post(`${this.apiUrl}/profiles/${profileId}/heartbeat`, {});
     }
 }

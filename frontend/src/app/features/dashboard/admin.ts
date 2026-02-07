@@ -1,11 +1,11 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiService, Video, Profile } from '../../services/api.service';
-import { Button } from '../../components/ui/button/button';
-import { ThemeToggle } from '../../components/ui/theme-toggle/theme-toggle';
-import { VideoList } from '../../components/video-list/video-list';
-import { ProfileManager } from '../../components/profile-manager/profile-manager';
-import { ConfirmModal } from '../../components/ui/confirm-modal/confirm-modal';
+import { Button } from '../../shared/ui/button/button';
+import { ThemeToggle } from '../../shared/ui/theme-toggle/theme-toggle';
+import { VideoList } from './components/video-list/video-list';
+import { ProfileManager } from './components/profile-manager/profile-manager';
+import { ConfirmModal } from '../../shared/ui/confirm-modal/confirm-modal';
 
 @Component({
   selector: 'app-admin',
@@ -13,7 +13,7 @@ import { ConfirmModal } from '../../components/ui/confirm-modal/confirm-modal';
   templateUrl: './admin.html',
   styleUrl: './admin.css',
 })
-export class Admin implements OnInit {
+export class Admin implements OnInit, OnDestroy {
   activeTab: 'videos' | 'profiles' = 'videos';
   isMobileMenuOpen = signal<boolean>(false);
   videos = signal<Video[]>([]);
@@ -25,15 +25,44 @@ export class Admin implements OnInit {
 
   // Mock Logic for dashboard widgets
   isSystemOnline = signal(true);
-  playerUrl = signal('http://localhost:8080/player');
+  systemInfo = signal<{ uptime: number; localIps: string[] } | null>(null);
+  playerUrl = signal('');
 
   constructor(private api: ApiService) { }
 
   ngOnInit() {
     this.refreshData();
+    this.startStatusPolling();
+
     if (typeof window !== 'undefined') {
       this.playerUrl.set(`${window.location.origin}/player`);
     }
+  }
+
+  ngOnDestroy() {
+    if (this.statusInterval) clearInterval(this.statusInterval);
+  }
+
+  private statusInterval: any;
+  startStatusPolling() {
+    // Initial check
+    this.checkSystemStatus();
+    // Poll every 30 seconds
+    this.statusInterval = setInterval(() => {
+      this.checkSystemStatus();
+    }, 30000);
+  }
+
+  checkSystemStatus() {
+    this.api.getSystemStatus().subscribe({
+      next: (status) => {
+        this.isSystemOnline.set(status.online);
+        this.systemInfo.set({ uptime: status.uptime, localIps: status.localIps });
+      },
+      error: () => {
+        this.isSystemOnline.set(false);
+      }
+    });
   }
 
   refreshData() {

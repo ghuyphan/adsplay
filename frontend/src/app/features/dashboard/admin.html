@@ -65,14 +65,14 @@
     </aside>
 
     <!-- Main Content -->
-    <main class="flex-1 relative overflow-hidden flex flex-col h-[calc(100vh-theme('spacing.20'))] md:h-screen">
+    <main class="flex-1 relative flex flex-col h-[calc(100vh-theme('spacing.20'))] md:h-screen">
         <!-- Background Orbs -->
         <div
             class="absolute -top-[20%] -right-[20%] w-[62.5rem] h-[62.5rem] bg-brand-primary opacity-5 rounded-full pointer-events-none z-0">
         </div>
 
         <!-- Header -->
-        <header class="relative z-10 px-6 py-6 md:py-8 flex justify-between items-center shrink-0">
+        <header class="relative px-6 py-3 md:py-4 flex justify-between items-center shrink-0">
             <div class="flex items-center gap-4">
                 <!-- Mobile Hamburger -->
                 <button class="md:hidden p-2 -ml-2 text-slate-600 dark:text-slate-300 hover:text-brand-primary"
@@ -104,7 +104,7 @@
         </header>
 
         <!-- Dynamic Content Area -->
-        <div class="relative z-10 flex-1 px-6 pb-6 overflow-y-auto min-h-0">
+        <div class="relative z-40 flex-1 px-6 pb-6 overflow-y-auto min-h-0">
             @if (loading()) {
             <div class="flex flex-col items-center justify-center py-20 animate-fade-in">
                 <div class="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spin">
@@ -119,12 +119,18 @@
                     class="p-6 rounded-2xl bg-white dark:bg-brand-surface border border-slate-200 dark:border-white/10 shadow-sm flex items-center justify-between">
                     <div>
                         <h3 class="font-bold text-slate-700 dark:text-slate-200">Trạng Thái Hệ Thống</h3>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Máy chủ hoạt động bình thường</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                            @if (systemInfo()) {
+                            IP: {{ systemInfo()?.localIps?.[0] || 'Unknown' }}
+                            } @else {
+                            Đang kiểm tra...
+                            }
+                        </p>
                     </div>
                     <div class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-2"
                         [class.bg-emerald-100]="isSystemOnline()" [class.text-emerald-700]="isSystemOnline()"
                         [class.bg-red-100]="!isSystemOnline()" [class.text-red-700]="!isSystemOnline()">
-                        <span class="w-2 h-2 rounded-full bg-current"></span>
+                        <span class="w-2 h-2 rounded-full bg-current animate-pulse"></span>
                         {{ isSystemOnline() ? 'Online' : 'Offline' }}
                     </div>
                 </div>

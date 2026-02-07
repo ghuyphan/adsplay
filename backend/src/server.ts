@@ -154,6 +154,42 @@ app.delete('/api/profiles/:id', async (req, res) => {
     res.json({ success: true });
 });
 
+// 8. System Status
+app.get('/api/system/status', (req, res) => {
+    const { networkInterfaces, uptime } = require('os');
+    const nets = networkInterfaces();
+    const results: string[] = [];
+
+    for (const name of Object.keys(nets)) {
+        for (const net of nets[name]) {
+            if (net.family === 'IPv4' && !net.internal) {
+                results.push(net.address);
+            }
+        }
+    }
+
+    res.json({
+        online: true,
+        uptime: uptime(),
+        localIps: results
+    });
+});
+
+// 9. Profile Heartbeat
+app.post('/api/profiles/:id/heartbeat', async (req, res): Promise<any> => {
+    const { id } = req.params;
+    const db = await getDb();
+    const profile = db.profiles.find(p => p.id === id);
+
+    if (profile) {
+        profile.lastSeen = new Date().toISOString();
+        await saveDb(db);
+        res.json({ success: true });
+    } else {
+        res.status(404).json({ error: 'Profile not found' });
+    }
+});
+
 
 // Fallback for Angular routing
 app.use((req, res) => {
@@ -163,4 +199,16 @@ app.use((req, res) => {
 // Start
 app.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`Server running at http://0.0.0.0:${PORT}`);
+
+    // Log local IP addresses
+    const { networkInterfaces } = require('os');
+    const nets = networkInterfaces();
+    for (const name of Object.keys(nets)) {
+        for (const net of nets[name]) {
+            // Skip over non-IPv4 and internal (i.e. 127.0.0.1) addresses
+            if (net.family === 'IPv4' && !net.internal) {
+                console.log(`Server available at http://${net.address}:${PORT}`);
+            }
+        }
+    }
 });

@@ -1,7 +1,7 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Button } from '../ui/button/button';
-import { Video } from '../../services/api.service';
+import { Button } from '../../../../shared/ui/button/button';
+import { Video } from '../../../../services/api.service';
 
 @Component({
   selector: 'app-video-list',

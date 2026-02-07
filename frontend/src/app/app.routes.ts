@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
-import { Admin } from './pages/admin/admin';
-import { Player } from './pages/player/player';
+import { Admin } from './features/dashboard/admin';
+import { Player } from './features/player/player';
 
 export const routes: Routes = [
     { path: 'admin', component: Admin },

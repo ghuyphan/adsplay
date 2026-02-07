@@ -1,93 +1,60 @@
-# adsplay
+# AdPlay - Digital Signage Solution
 
-A full-stack application for managing and playing video ads. This project consists of an **Angular** frontend and an **Express** backend.
-
-## Prerequisites
-
-Before you begin, ensure you have met the following requirements:
-
-*   **Node.js**: v18 or higher is recommended.
-*   **npm**: Included with Node.js.
-
-## Installation
-
-1.  **Clone the repository**:
-    ```bash
-    git clone https://github.com/ghuyphan/adsplay.git
-    cd adsplay
-    ```
-
-2.  **Install Frontend Dependencies**:
-    ```bash
-    cd frontend
-    npm install
-    ```
-
-3.  **Install Backend Dependencies**:
-    ```bash
-    cd ../backend
-    npm install
-    ```
-
-## Running the Application
-
-### 1. Start the Backend
-
-The backend server handles API requests and serves the static files in production.
-
-1.  Navigate to the `backend` directory:
-    ```bash
-    cd backend
-    ```
-2.  (Optional) Create a `.env` file based on `.env.example` if you want to configure the port:
-    ```bash
-    cp .env.example .env
-    ```
-3.  Start the development server:
-    ```bash
-    npm run dev
-    ```
-    The backend will run on `http://localhost:3000` (or your configured port).
-    
-    > **Note**: The backend expects an `uploads` folder to store uploaded videos. It should be created automatically, but ensure write permissions are available.
-
-### 2. Start the Frontend
-
-1.  Open a new terminal and navigate to the `frontend` directory:
-    ```bash
-    cd frontend
-    ```
-2.  Start the Angular development server:
-    ```bash
-    npm start
-    ```
-    The frontend will be available at `http://localhost:4200`.
-
-## Building for Production
-
-To build the frontend for production and serve it via the backend:
-
-1.  **Build Frontend**:
-    ```bash
-    cd frontend
-    npm run build
-    ```
-    This will generate artifacts in `frontend/dist/frontend/browser`.
-
-2.  **Start Backend**:
-    ```bash
-    cd ../backend
-    npm start
-    ```
-    The backend is configured to serve the Angular app from the `dist` folder. You can access the application at `http://localhost:3000`.
+A lightweight, local-network-friendly digital signage system.
 
 ## Project Structure
+-   `frontend/`: Angular application (Dashboard & Player).
+-   `backend/`: Express.js server (API & File Storage).
 
-*   `frontend/`: Angular application source code.
-*   `backend/`: Express.js server and API implementation.
-*   `backend/uploads/`: Directory where uploaded video files are stored.
-*   `backend/db.json`: Simple JSON-based database for development.
+## Getting Started
 
-## License
+### Prerequisites
+-   Node.js (v18+ recommended)
+-   npm
 
-This project is licensed under the MIT License.
+### Installation
+
+1.  **Frontend**:
+    ```bash
+    cd frontend
+    npm install
+    ```
+
+2.  **Backend**:
+    ```bash
+    cd backend
+    npm install
+    ```
+
+### Running the Application
+
+To access the application from other devices on the same network, you must run both the frontend and backend.
+
+#### 1. Start the Backend
+```bash
+cd backend
+npm run dev
+```
+*The server will log the local IP address (e.g., `http://192.168.1.10:3000`).*
+
+#### 2. Start the Frontend
+```bash
+cd frontend
+npm run start
+```
+*The frontend will be available at `http://0.0.0.0:4200` locally.*
+
+## Accessing via Local Network
+
+1.  **Find your Work Machine's IP Address**:
+    -   Look at the backend terminal output, it will show something like: `Server available at http://192.168.1.x:3000`.
+    -   Or run `ifconfig` (Mac/Linux) / `ipconfig` (Windows).
+
+2.  **On Other Devices (TV, Phone, etc.)**:
+    -   Open a browser and go to: `http://<YOUR_IP>:4200`
+    -   Example: `http://192.168.1.15:4200`
+
+## Features
+-   **Dashboard** (`/admin`): Manage profiles, upload videos, and organize playlists.
+-   **Player** (`/player`): Clean, UI-free video player for digital signage displays.
+    -   *Note*: Click "Chạm Để Bật Tiếng" if audio does not autoplay.
