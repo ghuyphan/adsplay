@@ -11,8 +11,12 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// Ensure uploads directory exists
+const uploadsDir = path.join(__dirname, '../uploads');
+fs.ensureDirSync(uploadsDir);
+
 // Static files
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/uploads', express.static(uploadsDir));
 app.use(express.static(path.join(__dirname, '../../frontend/dist/frontend/browser')));
 
 // Simple logging middleware
