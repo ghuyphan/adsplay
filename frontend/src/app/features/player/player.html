@@ -82,11 +82,20 @@
         </button>
     </div>
     } @else {
-    <div class="w-full h-full bg-black relative group/player flex items-center justify-center">
+    <div class="w-full h-full bg-black relative group/player flex items-center justify-center overflow-hidden">
+        <!-- Blurred Background for Portrait Videos (Always in DOM for sync, conditionally visible) -->
+        <div class="absolute inset-0 z-0 scale-125 blur-3xl transition-opacity duration-1000"
+            [class.opacity-40]="isVideoPortrait()" [class.opacity-0]="!isVideoPortrait()">
+            <video #bgVideo [src]="currentVideoSrc()" class="w-full h-full object-cover" muted playsinline
+                tabindex="-1">
+            </video>
+        </div>
+
         <!-- object-contain is crucial for signage to avoid cropping info -->
         <video #videoPlayer [src]="currentVideoSrc()"
-            class="max-w-full max-h-full w-auto h-auto object-contain shadow-2xl" playsinline (ended)="onVideoEnded()"
-            (click)="toggleFullscreen()">
+            class="relative z-10 max-w-full max-h-full w-auto h-auto object-contain shadow-2xl transition-all duration-700"
+            [class.scale-95]="isVideoPortrait() && !isFullscreen()" playsinline (ended)="onVideoEnded()"
+            (loadedmetadata)="onMetadataLoaded($event)" (click)="toggleFullscreen()">
         </video>
 
         <!-- Overlay Controls Removed for Ads Mode -->

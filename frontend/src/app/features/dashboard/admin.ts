@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, signal, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpEvent, HttpEventType } from '@angular/common/http';
 import { ApiService, Video, Profile } from '../../services/api.service';
 import { Button } from '../../shared/ui/button/button';
 import { ThemeToggle } from '../../shared/ui/theme-toggle/theme-toggle';
@@ -20,6 +21,7 @@ export class Admin implements OnInit, OnDestroy {
   profiles = signal<Profile[]>([]);
   loading = signal(false);
   isUploading = signal(false);
+  uploadProgress = signal(0); // Add progress signal
 
   // Modal State
   videoDeletingId = signal<string | null>(null);
@@ -102,16 +104,28 @@ export class Admin implements OnInit, OnDestroy {
 
   onUpload(file: File) {
     this.isUploading.set(true);
-    this.loading.set(true);
+    this.uploadProgress.set(0); // Reset progress
+
     this.api.uploadVideo(file).subscribe({
-      next: () => {
-        this.isUploading.set(false);
-        this.refreshData();
+      next: (event: HttpEvent<any>) => {
+        if (event.type === HttpEventType.UploadProgress) {
+          if (event.total) {
+            const percentDone = Math.round(100 * event.loaded / event.total);
+            this.uploadProgress.set(percentDone);
+          }
+        } else if (event.type === HttpEventType.Response) {
+          // Upload complete
+          this.isUploading.set(false);
+          this.uploadProgress.set(0);
+          this.refreshData();
+        }
       },
       error: (err) => {
         console.error('Upload failed', err);
         this.isUploading.set(false);
-        this.loading.set(false);
+        this.uploadProgress.set(0);
+        // We don't necessarily clear loading here if refresh finishes it,
+        // but it's safe to turn it off if it was just blockading UI.
       }
     });
   }

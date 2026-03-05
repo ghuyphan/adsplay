@@ -88,11 +88,14 @@ export class ProfileManager {
   }
 
   save() {
+    const name = this.profileName.trim();
+    if (!name) return;
+
     const videoIds = this.playlistVideos.map(v => v.id);
 
     const obs = this.editingId
-      ? this.api.updateProfile(this.editingId, this.profileName, videoIds)
-      : this.api.createProfile(this.profileName, videoIds);
+      ? this.api.updateProfile(this.editingId, name, videoIds)
+      : this.api.createProfile(name, videoIds);
 
     obs.subscribe(() => {
       this.isEditing = false;

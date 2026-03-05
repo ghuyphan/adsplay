@@ -11,6 +11,8 @@ import { Video } from '../../../../services/api.service';
 })
 export class VideoList {
   @Input() videos: Video[] = [];
+  @Input() isUploading: boolean = false;
+  @Input() uploadProgress: number = 0;
   @Output() upload = new EventEmitter<File>();
   @Output() delete = new EventEmitter<string>();
 

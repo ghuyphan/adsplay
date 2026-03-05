@@ -1,85 +1,110 @@
-# AdPlay - Digital Signage Solution (Giải pháp trình chiếu nội dung kỹ thuật số)
+# AdPlay - Professional Digital Signage Solution
 
-[English Version](#english-version) | [Phiên Bản Tiếng Việt](#vietnamese-version-phiên-bản-tiếng-việt)
-
----
-
-## English Version
-
-### What is AdPlay?
-AdPlay is a lightweight digital signage system designed to run on your local network. It allows you to upload videos, organize them into playlists (Profiles), and play them on any device (TV, phone, tablet) connected to the same Wi-Fi.
-
-### How to Start the App
-To use the app easily, we have provided startup scripts that will run both the Backend and Frontend for you automatically.
-
-**For Windows Users:**
-1. Open the folder containing the `AdPlay` project.
-2. Double-click the `start.bat` file.
-3. Two command windows will open automatically (one for the Backend, one for the Frontend). *Do not close these windows while using the app.*
-
-**For macOS / Linux Users:**
-1. Open a terminal and navigate to the `AdPlay` folder.
-2. Run the startup script by typing:
-   ```bash
-   ./start.sh
-   ```
-3. Leave this terminal open while using the app. You can press `Ctrl+C` to stop the servers later.
-
-### How to Access the App
-- **On this computer (Host Machine):**
-  - **Dashboard** (Manage content): Open your browser and go to `http://localhost:4200/admin`
-  - **Player** (Show videos): Open your browser and go to `http://localhost:4200/player`
-- **On other devices (TV, iPad, Phone):**
-  - Make sure they are connected to the **same Wi-Fi network**.
-  - Open a browser and type: `http://<YOUR_IP>:4200/admin` or `http://<YOUR_IP>:4200/player` (Replace `<YOUR_IP>` with the IP address from step 1, like `192.168.1.10`).
-
-### How to Use the Dashboard (`/admin`)
-1. **Upload Videos**: First, upload the video files you want to display.
-2. **Create Profiles (Playlists)**: A Profile is a playlist of videos. Create a new Profile, give it a name, and select the uploaded videos you want to include in it.
-
-### How to Use the Player (`/player`)
-1. Open the Player link on your display device.
-2. The player provides a clean, full-screen video experience.
-3. You can play a specific profile by adding the profile name to the link: `http://<YOUR_IP>:4200/player/<ProfileName>`
-4. *Note: Browsers often block automatic video sound. If the video has sound, you may need to click "Chạm Để Bật Tiếng" (Tap to Unmute) on the screen to hear the audio.*
+AdPlay is a lightweight, high-performance digital signage system designed to transform any screen into a powerful advertising or information hub. It is optimized for local networks, providing a seamless experience for managing and playing video content across multiple displays.
 
 ---
 
-## Vietnamese Version (Phiên Bản Tiếng Việt)
+## 🚀 Key Features
+
+- **Centralized Management**: Easily upload and organize videos into profiles (playlists).
+- **Multi-Screen Support**: Stream specific playlists to different devices on your network.
+- **Modern UI**: A premium, responsive dashboard and a clean, immersive player.
+- **Local First**: Runs entirely on your own infrastructure for maximum speed and privacy.
+- **Portrait Ready**: Dynamic detection and beautiful rendering for vertical displays.
+
+## ⚠️ Important Project Notes
+
+Please be aware of the following design choices and constraints:
+
+- **No Authentication**: This project currently does **not** include a login or authentication system. It is designed to be used within a **trusted local area network (LAN)**. Access to the dashboard should be restricted at the network level if security is a concern.
+- **Local LAN Network**: The system is built for local network usage. Devices must be connected to the same Wi-Fi or Ethernet network to communicate.
+
+## 🔓 Open Source & Forking
+
+This project is open for everyone! You are free to:
+- **Fork** the repository and create your own version.
+- **Modify** the code to suit your specific needs (e.g., adding Auth, cloud sync, etc.).
+- **Share** and use it for your own projects.
+
+If you find this project useful, feel free to contribute back or give it a star!
+
+---
+
+## � Simple Guide (For Everyone)
+
+Setting up AdPlay is easy, even if you aren't a "tech person." Here is how to get your videos on the big screen:
+
+### 1. Start the System
+- **Mac Users**: Open the project folder and double-click the `start.sh` file.
+- **Windows Users**: Open the project folder and double-click the `start.bat` file.
+- *Tip: Keep the black windows that appear open. They are the "engine" of the app!*
+
+### 2. Open the "Remote Control" (Dashboard)
+On your computer, open your web browser (Chrome, Safari, etc.) and type:
+`http://localhost:4200/admin`
+This is where you upload your videos and create playlists.
+
+### 3. Connect your TV or Tablet
+- Make sure your TV/Tablet is on the **same Wi-Fi** as your computer.
+- On the computer running the app, the "black window" will show an address like `http://192.168.1.50:4200`.
+- Type that exact address into your TV's web browser.
+
+### 4. Play!
+- In the Dashboard, upload your video and put it in a "Profile."
+- On your TV, select that Profile, and it will start playing automatically in full screen!
+
+---
+
+## �🛠 Technical Getting Started
+
+### 1. Prerequisites
+- Node.js (v18+)
+- Local network access
+
+### 2. Startup Scripts
+We provide automated scripts to launch both the backend and frontend simultaneously.
+
+**For macOS / Linux:**
+```bash
+./start.sh
+```
+
+**For Windows:**
+```bash
+start.bat
+```
+
+### 3. Accessing the System
+- **Admin Dashboard**: `http://localhost:4200/admin` (Manage your content)
+- **Content Player**: `http://localhost:4200/player` (Display your videos)
+
+For remote displays (TVs, Tablets), replace `localhost` with your machine's IP address (e.g., `http://192.168.1.50:4200/player`).
+
+---
+
+## 📺 Player Interaction
+Browsers often block videos with sound from playing automatically. 
+- If your video has audio, the player will show a **"Chạm Để Bật Tiếng" (Tap to Unmute)** button.
+- Click anywhere on the player to enter **Full Screen** mode for the best signage experience.
+
+---
+
+## 🇻🇳 Phiên Bản Tiếng Việt (Vietnamese Version)
 
 ### AdPlay là gì?
-AdPlay là một hệ thống trình chiếu nội dung kỹ thuật số (digital signage) nhỏ gọn, hoạt động trên mạng nội bộ (mạng LAN/Wi-Fi). Hệ thống giúp bạn tải video lên, sắp xếp chúng thành các danh sách phát (Profile) và trình chiếu trên bất kỳ thiết bị nào (TV, điện thoại, máy tính bảng) cùng kết nối chung một mạng Wi-Fi.
+AdPlay là một hệ thống trình chiếu nội dung kỹ thuật số (digital signage) năng suất cao, được thiết kế để hoạt động trên mạng nội bộ (mạng LAN/Wi-Fi). Hệ thống giúp bạn tải video, tổ chức danh sách phát (Profiles) và phát trên bất kỳ thiết bị nào.
 
-### Cách Khởi Động Ứng Dụng
-Để sử dụng dễ dàng hơn, chúng tôi đã tạo sẵn các file khởi động tự động để chạy cả Backend và Frontend cùng một lúc.
+### Ghi Chú Quan Trọng
+- **Không có Đăng Nhập (No Auth)**: Ứng dụng này sử dụng tốt nhất trong môi trường mạng LAN an toàn.
+- **Sử Dụng Khởi Động Nhanh**: Dùng `start.bat` (Windows) hoặc `./start.sh` (Mac/Linux) để tự động khởi động hệ thống.
 
-**Dành cho người dùng Windows:**
-1. Mở thư mục chứa dự án `AdPlay`.
-2. Nhấn đúp chuột (chuột trái 2 lần) vào file `start.bat`.
-3. Hai cửa sổ lệnh sẽ tự động xuất hiện (một cái cho Backend, một cái cho Frontend). *Vui lòng không đóng hai cửa sổ này trong quá trình sử dụng.*
+### Hướng Dẫn Sử Dụng Nhanh (Dành Cho Mọi Người)
+1. **Khởi động**: Chọn và chạy file `start.bat` hoặc `start.sh`. Giữ cửa sổ dòng lệnh mở.
+2. **Quản Lý**: Mở trình duyệt trên máy tính hiện tại, vào địa chỉ `http://localhost:4200/admin`.
+3. **Phát Video**: Trên Tivi hoặc điện thoại (cùng WiFi), mở địa chỉ IP được hệ thống cung cấp (ví dụ: `http://192.168.1.5:4200`) để truy cập Dashboard, hoặc tự điền `. /player` để xem video.
+4. Chọn danh sách phát, và bấm chạm vào màn hình để bật tiếng / phóng to.
 
-**Dành cho người dùng macOS / Linux (Macbook):**
-1. Mở ứng dụng Terminal và đi tới thư mục `AdPlay`.
-2. Chạy lệnh khởi động bằng cách gõ:
-   ```bash
-   ./start.sh
-   ```
-3. Giữ cửa sổ terminal này mở trong lúc sử dụng. Bạn có thể nhấn tổ hợp phím `Ctrl+C` để tắt máy chủ sau đó.
+---
 
-### Cách Truy Cập Ứng Dụng
-- **Trên máy tính đang chạy phần mềm (Host Machine):**
-  - **Trang quản trị (Dashboard)**: Mở trình duyệt web và truy cập `http://localhost:4200/admin`
-  - **Chế độ phát (Player)**: Mở trình duyệt web và truy cập `http://localhost:4200/player`
-- **Trên các thiết bị khác (TV, iPad, Điện thoại):**
-  - Đảm bảo thiết bị đã kết nối vào **cùng một mạng Wi-Fi** với máy chủ.
-  - Mở trình duyệt web và gõ: `http://<ĐỊA_CHỈ_IP>:4200/admin` hoặc `http://<ĐỊA_CHỈ_IP>:4200/player` (Thay `<ĐỊA_CHỈ_IP>` bằng địa chỉ lấy được ở bước 1, ví dụ: `192.168.1.10`).
+Designed with ❤️ for simple, effective digital signage.
 
-### Cách Sử Dụng Trang Quản Trị (`/admin`)
-1. **Tải Video Lên (Upload Videos)**: Trước tiên, hãy tải lên các file video bạn muốn trình chiếu.
-2. **Tạo Profile (Danh sách phát)**: Profile chính là danh sách các video sẽ được phát liên tục. Hãy tạo một Profile mới, đặt tên, và chọn các video bạn muốn đưa vào danh sách này.
-
-### Cách Sử Dụng Chế Độ Phát (`/player`)
-1. Mở đường link Player trên thiết bị dùng để trình chiếu (ví dụ: TV).
-2. Màn hình Player sẽ phát video tràn viền, không có giao diện rườm rà.
-3. Bạn có thể chọn phát một Profile cụ thể bằng cách thêm tên Profile vào sau đường link: `http://<ĐỊA_CHỈ_IP>:4200/player/<Tên_Profile>`
-4. *Lưu ý: Các trình duyệt web thường chặn tự động phát âm thanh. Nếu video có tiếng, bạn có thể cần nhấn vào nút "Chạm Để Bật Tiếng" trên màn hình để nghe được âm thanh.*

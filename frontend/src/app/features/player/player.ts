@@ -17,11 +17,12 @@ export class Player implements OnInit, OnDestroy {
   currentVideoIndex = signal(0);
   loading = signal(true);
   showUnmuteOverlay = signal(false);
-  isCursorHidden = signal(false); // Track if cursor should be hidden
-
+  isCursorHidden = signal(false);
+  isVideoPortrait = signal(false);
   private activityTimeout: any;
 
   @ViewChild('videoPlayer') videoPlayer!: ElementRef<HTMLVideoElement>;
+  @ViewChild('bgVideo') bgVideo?: ElementRef<HTMLVideoElement>;
   @ViewChild('container') container!: ElementRef<HTMLDivElement>;
 
   currentVideoSrc = computed(() => {
@@ -141,9 +142,7 @@ export class Player implements OnInit, OnDestroy {
               this.profile.set(detailedProfile);
               this.currentVideoIndex.set(0);
               this.loading.set(false);
-              // Auto-start is handled by the template rendering the video element.
-              // We just need to trigger play().
-              this.triggerPlay();
+              // Video play is now handled by (loadedmetadata) in the template automatically.
               // Send initial heartbeat
               this.api.sendHeartbeat(found.id).subscribe();
             },
@@ -180,11 +179,15 @@ export class Player implements OnInit, OnDestroy {
     this.router.navigate(['/player', slugify(p.name)]);
   }
 
-  private triggerPlay() {
-    // Small timeout to allow ViewChild to be populated
-    setTimeout(() => {
+  // Removed triggerPlay since we now use loadedmetadata
+
+  onMetadataLoaded(event: any) {
+    const video = event.target as HTMLVideoElement;
+    if (video) {
+      this.isVideoPortrait.set(video.videoHeight > video.videoWidth);
+      // Once metadata is loaded (like size), we safely trigger playback
       this.playVideo();
-    }, 100);
+    }
   }
 
   async playVideo() {
@@ -192,14 +195,24 @@ export class Player implements OnInit, OnDestroy {
 
     try {
       this.videoPlayer.nativeElement.muted = false;
-      await this.videoPlayer.nativeElement.play();
+      const playPromise = this.videoPlayer.nativeElement.play();
+      if (this.bgVideo && this.bgVideo.nativeElement) {
+        this.bgVideo.nativeElement.currentTime = 0;
+        this.bgVideo.nativeElement.play().catch(() => { });
+      }
+      await playPromise;
       this.showUnmuteOverlay.set(false);
     } catch (err) {
       console.warn("Autoplay with sound failed, falling back to muted", err);
       // Fallback for browsers blocking unmuted autoplay
       this.videoPlayer.nativeElement.muted = true;
       try {
-        await this.videoPlayer.nativeElement.play();
+        const fallbackPromise = this.videoPlayer.nativeElement.play();
+        if (this.bgVideo && this.bgVideo.nativeElement) {
+          this.bgVideo.nativeElement.currentTime = 0;
+          this.bgVideo.nativeElement.play().catch(() => { });
+        }
+        await fallbackPromise;
         // If muted play works, show overlay to let user unmute
         this.showUnmuteOverlay.set(true);
       } catch (e) {
@@ -219,6 +232,9 @@ export class Player implements OnInit, OnDestroy {
     if (!this.videoPlayer) return;
     this.videoPlayer.nativeElement.muted = false;
     this.videoPlayer.nativeElement.play().catch(e => console.error("Unmute play failed", e));
+    if (this.bgVideo && this.bgVideo.nativeElement) {
+      this.bgVideo.nativeElement.play().catch(() => { });
+    }
     this.showUnmuteOverlay.set(false);
   }
 
@@ -239,7 +255,6 @@ export class Player implements OnInit, OnDestroy {
           // Check if we still have videos after update
           if (updatedProfile.videos && updatedProfile.videos.length > 0) {
             this.currentVideoIndex.set(0);
-            this.playWithDelay();
           } else {
             console.warn('Playlist became empty after update.');
           }
@@ -248,23 +263,15 @@ export class Player implements OnInit, OnDestroy {
           console.error('Failed to auto-update playlist, looping local copy', err);
           // Fallback: loop local copy
           this.currentVideoIndex.set(0);
-          this.playWithDelay();
         }
       });
     } else {
       // Normal progression
       this.currentVideoIndex.set(nextIndex);
-      this.playWithDelay();
     }
   }
 
-  private playWithDelay() {
-    setTimeout(() => {
-      if (this.videoPlayer && this.videoPlayer.nativeElement) {
-        this.videoPlayer.nativeElement.play().catch(e => console.error("Play failed", e));
-      }
-    });
-  }
+  // playWithDelay removed as we rely on native loadedmetadata event
 
   toggleFullscreen() {
     if (!document.fullscreenElement) {

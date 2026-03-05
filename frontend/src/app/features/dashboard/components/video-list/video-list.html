@@ -6,21 +6,58 @@
     </div>
 
     <!-- Hidden File Input -->
-    <input type="file" #fileInput class="hidden" (change)="onFileSelected($event)" accept="video/mp4,video/webm">
+    <input type="file" #fileInput class="hidden" (change)="onFileSelected($event)" accept="video/mp4,video/webm"
+        [disabled]="isUploading">
 
     <!-- Grid Layout -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
 
         <!-- Upload Card (Always First) -->
-        <button (click)="fileInput.click()"
-            class="group relative aspect-video flex flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-slate-300 dark:border-white/10 bg-slate-50/50 dark:bg-white/5 hover:bg-brand-primary/5 hover:border-brand-primary/50 transition-all duration-300 cursor-pointer overflow-hidden text-slate-400 hover:text-brand-primary">
-            <div
-                class="w-16 h-16 rounded-full bg-slate-200 dark:bg-white/10 flex items-center justify-center group-hover:scale-110 group-hover:bg-brand-primary group-hover:text-white transition-all duration-300 shadow-sm">
-                <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                </svg>
+        <button (click)="!isUploading && fileInput.click()" [disabled]="isUploading"
+            class="group relative aspect-video flex flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed transition-all duration-300 overflow-hidden shadow-sm"
+            [class.border-brand-primary]="isUploading" [class.bg-brand-primary/5]="isUploading"
+            [class.border-slate-300]="!isUploading" [class.dark:border-white/10]="!isUploading"
+            [class.bg-slate-50/50]="!isUploading" [class.dark:bg-white/5]="!isUploading"
+            [class.hover:bg-brand-primary/5]="!isUploading" [class.hover:border-brand-primary/50]="!isUploading"
+            [class.cursor-pointer]="!isUploading" [class.cursor-wait]="isUploading">
+
+            <!-- Progress Fill Background -->
+            @if (isUploading) {
+            <div class="absolute inset-y-0 left-0 bg-brand-primary/10 transition-all duration-300 ease-out z-0"
+                [style.width.%]="uploadProgress">
             </div>
-            <span class="font-bold uppercase tracking-widest text-xs">Tải Video Mới</span>
+            }
+
+            <div class="relative z-10 flex flex-col items-center gap-3 w-full px-6">
+                <!-- Icon or Progress Ring -->
+                @if (isUploading) {
+                <div class="relative w-16 h-16 flex items-center justify-center">
+                    <svg class="w-full h-full transform -rotate-90 text-brand-primary/20 backdrop-blur-sm"
+                        viewBox="0 0 36 36">
+                        <path class="stroke-current" stroke-width="3" fill="none"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path class="stroke-brand-primary transition-all duration-300 ease-out"
+                            stroke-dasharray="100, 100" [attr.stroke-dashoffset]="100 - uploadProgress" stroke-width="3"
+                            fill="none"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    </svg>
+                    <span class="absolute text-brand-primary font-bold text-sm">{{ uploadProgress }}%</span>
+                </div>
+                } @else {
+                <div
+                    class="w-16 h-16 rounded-full bg-slate-200 dark:bg-white/10 text-slate-400 flex items-center justify-center group-hover:scale-110 group-hover:bg-brand-primary group-hover:text-white transition-all duration-300 shadow-sm">
+                    <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                </div>
+                }
+
+                <span class="font-bold uppercase tracking-widest text-xs transition-colors"
+                    [class.text-brand-primary]="isUploading" [class.text-slate-400]="!isUploading"
+                    [class.group-hover:text-brand-primary]="!isUploading">
+                    {{ isUploading ? 'Đang Tải Lên...' : 'Tải Video Mới' }}
+                </span>
+            </div>
         </button>
 
         <!-- Video Cards -->

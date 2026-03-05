@@ -30,10 +30,13 @@ export class ApiService {
         return this.http.get<Video[]>(`${this.apiUrl}/videos`);
     }
 
-    uploadVideo(file: File): Observable<Video> {
+    uploadVideo(file: File): Observable<import('@angular/common/http').HttpEvent<Video>> {
         const formData = new FormData();
         formData.append('video', file);
-        return this.http.post<Video>(`${this.apiUrl}/videos`, formData);
+        return this.http.post<Video>(`${this.apiUrl}/videos`, formData, {
+            reportProgress: true,
+            observe: 'events'
+        });
     }
 
     deleteVideo(id: string): Observable<any> {

@@ -152,7 +152,8 @@
             </div>
 
             <div *ngIf="activeTab === 'videos'" class="animate-fade-in h-full pb-20">
-                <app-video-list [videos]="videos()" (upload)="onUpload($event)" (delete)="onDeleteVideo($event)">
+                <app-video-list [videos]="videos()" [isUploading]="isUploading()" [uploadProgress]="uploadProgress()"
+                    (upload)="onUpload($event)" (delete)="onDeleteVideo($event)">
                 </app-video-list>
             </div>
 
