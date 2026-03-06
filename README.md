@@ -118,5 +118,3 @@ AdPlay là hệ thống phát video quảng cáo nội bộ cực nhẹ, miễn 
 ---
 
 *Designed with ❤️ for simple, effective digital signage.*
-
-```
