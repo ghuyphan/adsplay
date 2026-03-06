@@ -30,6 +30,7 @@ export class Admin implements OnInit, OnDestroy {
   isSystemOnline = signal(true);
   systemInfo = signal<{ uptime: number; localIps: string[] } | null>(null);
   playerUrl = signal('');
+  copySuccess = signal(false);
 
   @HostListener('window:beforeunload', ['$event'])
   unloadNotification($event: any) {
@@ -150,7 +151,47 @@ export class Admin implements OnInit, OnDestroy {
   }
 
   copyUrl() {
-    navigator.clipboard.writeText(this.playerUrl());
-    // Could add toast here
+    const url = this.playerUrl();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(() => {
+        this.showCopySuccess();
+      }).catch(() => {
+        this.fallbackCopyTextToClipboard(url);
+      });
+    } else {
+      this.fallbackCopyTextToClipboard(url);
+    }
+  }
+
+  private fallbackCopyTextToClipboard(text: string) {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+
+    // Ensure the textarea is off-screen
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-9999px';
+    textArea.style.top = '0';
+    document.body.appendChild(textArea);
+
+    textArea.focus();
+    textArea.select();
+
+    try {
+      const successful = document.execCommand('copy');
+      if (successful) {
+        this.showCopySuccess();
+      }
+    } catch (err) {
+      console.error('Fallback copy failed', err);
+    }
+
+    document.body.removeChild(textArea);
+  }
+
+  private showCopySuccess() {
+    this.copySuccess.set(true);
+    setTimeout(() => {
+      this.copySuccess.set(false);
+    }, 2000);
   }
 }

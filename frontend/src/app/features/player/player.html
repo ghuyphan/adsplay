@@ -105,7 +105,7 @@
     <!-- Consolidated Overlay (Unmute / Fullscreen) -->
     @if (!isCursorHidden() && (!isFullscreen() || showUnmuteOverlay())) {
     <div (click)="interact()"
-        class="absolute inset-0 z-[70] bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center cursor-pointer animate-fade-in group/overlay">
+        class="absolute inset-0 z-[70] bg-black/60 flex flex-col items-center justify-center cursor-pointer animate-fade-in group/overlay">
         <div
             class="w-20 h-20 rounded-full bg-white/10 border border-white/30 flex items-center justify-center mb-6 group-hover/overlay:scale-110 group-hover/overlay:bg-brand-primary group-hover/overlay:border-brand-primary transition-all duration-300 shadow-[0_0_30px_rgba(255,255,255,0.1)]">
             <svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
