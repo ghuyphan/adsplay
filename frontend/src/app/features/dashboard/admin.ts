@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy, signal, HostListener } from '@angular/cor
 import { CommonModule } from '@angular/common';
 import { HttpEvent, HttpEventType } from '@angular/common/http';
 import { ApiService, Video, Profile } from '../../services/api.service';
+import { AuthService } from '../../services/auth.service';
 import { Button } from '../../shared/ui/button/button';
 import { ThemeToggle } from '../../shared/ui/theme-toggle/theme-toggle';
 import { VideoList } from './components/video-list/video-list';
@@ -39,7 +40,14 @@ export class Admin implements OnInit, OnDestroy {
     }
   }
 
-  constructor(private api: ApiService) { }
+  constructor(
+    private api: ApiService,
+    private authService: AuthService
+  ) { }
+
+  onLogout() {
+    this.authService.logout();
+  }
 
   ngOnInit() {
     this.refreshData();

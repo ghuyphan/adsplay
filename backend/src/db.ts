@@ -18,14 +18,22 @@ export interface Profile {
     lastSeen?: string;
 }
 
+export interface User {
+    id: string;
+    username: string;
+    passwordHash: string;
+}
+
 export interface DatabaseSchema {
     videos: Video[];
     profiles: Profile[];
+    users: User[];
 }
 
 const initialData: DatabaseSchema = {
     videos: [],
-    profiles: []
+    profiles: [],
+    users: []
 };
 
 // Ensure DB file exists on startup
@@ -35,6 +43,7 @@ if (!fs.existsSync(DB_FILE)) {
 
 // Load the database into memory once on startup (fixes Memory & Performance Scaling)
 const dbCache: DatabaseSchema = fs.readJsonSync(DB_FILE);
+if (!dbCache.users) dbCache.users = [];
 
 // Lock to ensure background disk writes happen sequentially
 let writeLock = Promise.resolve();

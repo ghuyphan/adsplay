@@ -2,8 +2,28 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs-extra';
-import { getDb, updateDb, Video, Profile } from './db';
+import { getDb, updateDb, Video, Profile, User } from './db';
 import multer from 'multer';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-me';
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin';
+
+// Auth Middleware
+export const authenticateToken = (req: any, res: any, next: any) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) return res.sendStatus(401);
+
+    jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
+        if (err) return res.sendStatus(403);
+        req.user = user;
+        next();
+    });
+};
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -15,18 +35,14 @@ app.use(express.json());
 const uploadsDir = path.join(__dirname, '../uploads');
 fs.ensureDirSync(uploadsDir);
 
-// Static files
-// express.static inherently handles some caching and ETag generation for videos
-app.use('/uploads', express.static(uploadsDir, {
-    maxAge: '1d' // Cache video files in the browser for 1 day to save massive bandwidth
-}));
-app.use(express.static(path.join(__dirname, '../../frontend/dist/frontend/browser')));
-
-// Simple logging middleware
+// 1. Logging
 app.use((req, res, next) => {
     console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
     next();
 });
+
+// 2. API Routes follow immediately to ensure they are prioritized
+// (Routes will be moved here in the next chunk/step)
 
 // Multer setup for secure uploads
 const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500 MB limit
@@ -60,14 +76,39 @@ const upload = multer({
 
 // Routes
 
+// 0. Auth Routes
+app.post('/api/auth/login', async (req, res): Promise<any> => {
+    const { username, password } = req.body;
+
+    // In a real app, we'd check against the users in the DB
+    // For this app, we'll use the env-provided admin credentials for simplicity
+    // but also allow checking against the users array if it exists.
+    const db = await getDb();
+    const user = db.users.find(u => u.username === username);
+
+    let isValid = false;
+    if (user) {
+        isValid = await bcrypt.compare(password, user.passwordHash);
+    } else if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+        isValid = true;
+    }
+
+    if (isValid) {
+        const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '24h' });
+        return res.json({ token });
+    }
+
+    res.status(401).json({ error: 'Invalid credentials' });
+});
+
 // 1. Get All Videos
-app.get('/api/videos', async (req, res) => {
+app.get('/api/videos', authenticateToken, async (req, res) => {
     const db = await getDb();
     res.json(db.videos);
 });
 
 // 2. Upload Video (Wrapped to handle Multer errors gracefully)
-app.post('/api/videos', (req, res, next) => {
+app.post('/api/videos', authenticateToken, (req, res, next) => {
     upload.single('video')(req, res, (err) => {
         if (err instanceof multer.MulterError) {
             // A Multer-specific error (e.g., file too large)
@@ -99,7 +140,7 @@ app.post('/api/videos', (req, res, next) => {
 });
 
 // 3. Delete Video
-app.delete('/api/videos/:id', async (req, res): Promise<any> => {
+app.delete('/api/videos/:id', authenticateToken, async (req, res): Promise<any> => {
     const { id } = req.params;
     const db = await getDb();
     const videoIndex = db.videos.findIndex(v => v.id === id);
@@ -140,7 +181,7 @@ app.delete('/api/videos/:id', async (req, res): Promise<any> => {
 });
 
 // 4. Get All Profiles
-app.get('/api/profiles', async (req, res) => {
+app.get('/api/profiles', authenticateToken, async (req, res) => {
     const db = await getDb();
     // Cache profile lists for 15 seconds to prevent polling abuse
     res.setHeader('Cache-Control', 'public, max-age=15');
@@ -148,7 +189,7 @@ app.get('/api/profiles', async (req, res) => {
 });
 
 // 5. Create/Update Profile
-app.post('/api/profiles', async (req, res) => {
+app.post('/api/profiles', authenticateToken, async (req, res) => {
     const { id, name, videoIds } = req.body;
 
     await updateDb(db => {
@@ -195,7 +236,7 @@ app.get('/api/profiles/:id', async (req, res): Promise<any> => {
 });
 
 // 7. Delete Profile
-app.delete('/api/profiles/:id', async (req, res) => {
+app.delete('/api/profiles/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
 
     await updateDb(db => {
@@ -206,7 +247,7 @@ app.delete('/api/profiles/:id', async (req, res) => {
 });
 
 // 8. System Status
-app.get('/api/system/status', (req, res) => {
+app.get('/api/system/status', authenticateToken, (req, res) => {
     const { networkInterfaces, uptime } = require('os');
     const nets = networkInterfaces();
     const results: string[] = [];
@@ -246,8 +287,18 @@ app.post('/api/profiles/:id/heartbeat', async (req, res): Promise<any> => {
     }
 });
 
+// Static files (moved here so they don't intercept API routes)
+app.use('/uploads', express.static(uploadsDir, {
+    maxAge: '1d'
+}));
+app.use(express.static(path.join(__dirname, '../../frontend/dist/frontend/browser')));
+
 // Fallback for Angular routing
 app.use((req, res) => {
+    // Never serve index.html for API routes
+    if (req.url.startsWith('/api')) {
+        return res.status(404).json({ error: 'API route not found' });
+    }
     res.sendFile(path.join(__dirname, '../../frontend/dist/frontend/browser/index.html'));
 });
 
