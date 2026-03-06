@@ -6,103 +6,89 @@ AdPlay is a lightweight, high-performance digital signage system designed to tra
 
 ## 🚀 Key Features
 
-- **Centralized Management**: Easily upload and organize videos into profiles (playlists).
-- **Multi-Screen Support**: Stream specific playlists to different devices on your network.
-- **Modern UI**: A premium, responsive dashboard and a clean, immersive player.
+- **Secure Admin Dashboard**: JWT-protected interface for managing your signage network.
+- **Centralized Management**: Easily upload, organize, and delete videos.
+- **Profile-Based Playlists**: Create specific content groups (Profiles) for different screens.
+- **Modern UI/UX**: Premium "Kawaii Cafe" / "Cute Foodie" aesthetic with glassmorphism and smooth animations.
+- **Portrait & Landscape Ready**: Automatic orientation detection and fullscreen scaling.
 - **Local First**: Runs entirely on your own infrastructure for maximum speed and privacy.
-- **Portrait Ready**: Dynamic detection and beautiful rendering for vertical displays.
-
-## ⚠️ Important Project Notes
-
-Please be aware of the following design choices and constraints:
-
-- **No Authentication**: This project currently does **not** include a login or authentication system. It is designed to be used within a **trusted local area network (LAN)**. Access to the dashboard should be restricted at the network level if security is a concern.
-- **Local LAN Network**: The system is built for local network usage. Devices must be connected to the same Wi-Fi or Ethernet network to communicate.
-
-## 🔓 Open Source & Forking
-
-This project is open for everyone! You are free to:
-- **Fork** the repository and create your own version.
-- **Modify** the code to suit your specific needs (e.g., adding Auth, cloud sync, etc.).
-- **Share** and use it for your own projects.
-
-If you find this project useful, feel free to contribute back or give it a star!
+- **Vietnamese Localization**: Full support for Vietnamese in the dashboard and login.
 
 ---
 
-## � Simple Guide (For Everyone)
+## 🔐 Authentication
 
-Setting up AdPlay is easy, even if you aren't a "tech person." Here is how to get your videos on the big screen:
+To ensure security, the Admin Dashboard is protected by JWT (JSON Web Tokens).
+
+- **Default Username**: `admin`
+- **Default Password**: `admin`
+
+*Note: You can change these credentials by setting the `ADMIN_USERNAME` and `ADMIN_PASSWORD` environment variables in the backend.*
+
+---
+
+## 🚀 Quick Start (For Everyone)
+
+Setting up AdPlay is easy. Follow these steps to get your content on the big screen:
 
 ### 1. Start the System
-- **Mac Users**: Open the project folder and double-click the `start.sh` file.
-- **Windows Users**: Open the project folder and double-click the `start.bat` file.
-- *Tip: Keep the black windows that appear open. They are the "engine" of the app!*
+- **Mac/Linux Users**: Open the project folder and run `./start.sh`.
+- **Windows Users**: Open the project folder and run `start.bat`.
+- *Wait for both the Backend and Frontend to initialize.*
 
-### 2. Open the "Remote Control" (Dashboard)
-On your computer, open your web browser (Chrome, Safari, etc.) and type:
+### 2. Access the Admin Dashboard
+Open your browser and navigate to:
 `http://localhost:4200/admin`
-This is where you upload your videos and create playlists.
+(Login with `admin` / `admin`)
 
-### 3. Connect your TV or Tablet
-- Make sure your TV/Tablet is on the **same Wi-Fi** as your computer.
-- On the computer running the app, the "black window" will show an address like `http://192.168.1.50:4200`.
-- Type that exact address into your TV's web browser.
+### 3. Connect your TVs or Tablets
+- Ensure your display device is on the **same Wi-Fi** as the computer running AdPlay.
+- The startup script will display your Local IP (e.g., `http://192.168.1.50:4200`).
+- Open that address on your TV's browser.
 
-### 4. Play!
-- In the Dashboard, upload your video and put it in a "Profile."
-- On your TV, select that Profile, and it will start playing automatically in full screen!
+### 4. Play Content
+- In the Dashboard, upload videos and assign them to a **Profile**.
+- On the TV, select the Profile, and tap the screen to enter **Full Screen** and enable audio.
 
 ---
 
-## �🛠 Technical Getting Started
+## 🛠 Technical Overview
 
-### 1. Prerequisites
-- Node.js (v18+)
-- Local network access
+### Tech Stack
+- **Frontend**: Angular 21+, Tailwind CSS (Modern, Responsive UI).
+- **Backend**: Node.js, Express (RESTful API).
+- **Database**: `db.json` (Local JSON file storage via `fs-extra`).
+- **Auth**: JWT (JSON Web Token) + `bcryptjs` hashing.
 
-### 2. Startup Scripts
-We provide automated scripts to launch both the backend and frontend simultaneously.
-
-**For macOS / Linux:**
-```bash
-./start.sh
-```
-
-**For Windows:**
-```bash
-start.bat
-```
-
-### 3. Accessing the System
-- **Admin Dashboard**: `http://localhost:4200/admin` (Manage your content)
-- **Content Player**: `http://localhost:4200/player` (Display your videos)
-
-For remote displays (TVs, Tablets), replace `localhost` with your machine's IP address (e.g., `http://192.168.1.50:4200/player`).
+### Project Structure
+- `/frontend`: Angular source code and assets.
+- `/backend`: Express server, `db.json`, and `/uploads` directory.
+- `start.bat` / `start.sh`: Combined startup scripts for development and production.
 
 ---
 
 ## 📺 Player Interaction
 Browsers often block videos with sound from playing automatically. 
-- If your video has audio, the player will show a **"Chạm Để Bật Tiếng" (Tap to Unmute)** button.
-- Click anywhere on the player to enter **Full Screen** mode for the best signage experience.
+- **Unmute**: Click the "Chạm Để Bật Tiếng" (Tap to Unmute) button if audio is present.
+- **Fullscreen**: Click anywhere on the player to enter immersive signage mode.
 
 ---
 
-## 🇻🇳 Phiên Bản Tiếng Việt (Vietnamese Version)
+## 🇻🇳 Hướng Dẫn Tiếng Việt
 
-### AdPlay là gì?
-AdPlay là một hệ thống trình chiếu nội dung kỹ thuật số (digital signage) năng suất cao, được thiết kế để hoạt động trên mạng nội bộ (mạng LAN/Wi-Fi). Hệ thống giúp bạn tải video, tổ chức danh sách phát (Profiles) và phát trên bất kỳ thiết bị nào.
+### Tính Năng Chính
+- **Quản lý Bảo mật**: Đăng nhập bằng tài khoản Admin để quản lý nội dung.
+- **Giao diện Hiện đại**: Phong cách "Kawaii Cafe" với hiệu ứng kính mờ và bo góc mềm mại.
+- **Hoạt động Mạng nội bộ**: Tốc độ cao, riêng tư, không cần internet sau khi cài đặt.
 
-### Ghi Chú Quan Trọng
-- **Không có Đăng Nhập (No Auth)**: Ứng dụng này sử dụng tốt nhất trong môi trường mạng LAN an toàn.
-- **Sử Dụng Khởi Động Nhanh**: Dùng `start.bat` (Windows) hoặc `./start.sh` (Mac/Linux) để tự động khởi động hệ thống.
+### Thông tin Đăng nhập mặc định
+- **Tài khoản**: `admin`
+- **Mật khẩu**: `admin`
 
-### Hướng Dẫn Sử Dụng Nhanh (Dành Cho Mọi Người)
-1. **Khởi động**: Chọn và chạy file `start.bat` hoặc `start.sh`. Giữ cửa sổ dòng lệnh mở.
-2. **Quản Lý**: Mở trình duyệt trên máy tính hiện tại, vào địa chỉ `http://localhost:4200/admin`.
-3. **Phát Video**: Trên Tivi hoặc điện thoại (cùng WiFi), mở địa chỉ IP được hệ thống cung cấp (ví dụ: `http://192.168.1.5:4200`) để truy cập Dashboard, hoặc tự điền `. /player` để xem video.
-4. Chọn danh sách phát, và bấm chạm vào màn hình để bật tiếng / phóng to.
+### Cách sử dụng nhanh
+1. Chạy `start.bat` (Windows) và giữ cửa sổ lệnh luôn mở.
+2. Truy cập `http://localhost:4200/admin` để quản lý video.
+3. Trên Tivi, truy cập vào địa chỉ IP của máy tính (ví dụ `http://192.168.1.5:4200`) để phát video.
 
 ---
 
