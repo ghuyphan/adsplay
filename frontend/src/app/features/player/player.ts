@@ -19,7 +19,10 @@ export class Player implements OnInit, OnDestroy {
   showUnmuteOverlay = signal(false);
   isCursorHidden = signal(false);
   isVideoPortrait = signal(false);
+
   private activityTimeout: any;
+  private heartbeatInterval: any;
+  private heartbeatFailures = 0;
 
   @ViewChild('videoPlayer') videoPlayer!: ElementRef<HTMLVideoElement>;
   @ViewChild('bgVideo') bgVideo?: ElementRef<HTMLVideoElement>;
@@ -38,11 +41,9 @@ export class Player implements OnInit, OnDestroy {
     });
   }
 
-  // Mouse move event bound correctly to use Zone
+  // Mouse move event bound outside of Angular Zone to prevent massive CPU spiking
   private onMouseMoveBound = () => {
-    this.zone.run(() => {
-      this.resetActivityTimer();
-    });
+    this.resetActivityTimer();
   }
 
   constructor(
@@ -62,12 +63,15 @@ export class Player implements OnInit, OnDestroy {
       }
     });
 
-    // Initialize state immediately in case we are already in fullscreen (e.g. navigation)
+    // Initialize state immediately in case we are already in fullscreen
     this.isFullscreen.set(!!document.fullscreenElement);
 
-    document.addEventListener('fullscreenchange', this.onFullscreenChangeBound);
-    document.addEventListener('mousemove', this.onMouseMoveBound);
-    document.addEventListener('click', this.onMouseMoveBound);
+    // Run high-frequency DOM events OUTSIDE the Angular zone to prevent Change Detection spam
+    this.zone.runOutsideAngular(() => {
+      document.addEventListener('fullscreenchange', this.onFullscreenChangeBound);
+      document.addEventListener('mousemove', this.onMouseMoveBound);
+      document.addEventListener('click', this.onMouseMoveBound);
+    });
 
     // Initial timer start
     this.resetActivityTimer();
@@ -84,36 +88,56 @@ export class Player implements OnInit, OnDestroy {
     if (this.activityTimeout) clearTimeout(this.activityTimeout);
   }
 
-  // Reset the 3-second activity timer
+  // Reset the 3-second activity timer efficiently
   private resetActivityTimer() {
-    this.isCursorHidden.set(false);
+    // Only re-enter the Angular Zone to update the signal if the cursor was previously hidden.
+    // This prevents triggering Angular CD 60+ times a second while the user moves the mouse.
+    if (this.isCursorHidden()) {
+      this.zone.run(() => {
+        this.isCursorHidden.set(false);
+      });
+    }
+
     if (this.activityTimeout) clearTimeout(this.activityTimeout);
 
-    // Only hide cursor if we are actually playing a profile (to not hide it on the selection screen)
+    // Only hide cursor if we are actually playing a profile
     if (this.profile()) {
-      this.activityTimeout = setTimeout(() => {
-        this.isCursorHidden.set(true);
-      }, 3000); // 3 seconds of inactivity
+      // Run the timeout outside the zone, then re-enter to hide the cursor
+      this.zone.runOutsideAngular(() => {
+        this.activityTimeout = setTimeout(() => {
+          this.zone.run(() => {
+            this.isCursorHidden.set(true);
+          });
+        }, 3000);
+      });
     }
   }
 
-  private heartbeatInterval: any;
   startHeartbeat() {
     // Send immediately if we have a profile loaded
     const sendPulse = () => {
       const p = this.profile();
       if (p && p.id) {
         this.api.sendHeartbeat(p.id).subscribe({
-          error: (e) => console.error('Heartbeat failed', e)
+          next: () => {
+            this.heartbeatFailures = 0; // Reset counter on success
+          },
+          error: (e) => {
+            console.error('Heartbeat failed', e);
+            this.heartbeatFailures++;
+
+            // Stop spamming the network if the backend is clearly down
+            if (this.heartbeatFailures >= 5) {
+              console.warn('Heartbeat failed 5 times continuously. Stopping polling.');
+              if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
+            }
+          }
         });
       }
     };
 
     // Poll every 30 seconds
     this.heartbeatInterval = setInterval(sendPulse, 30000);
-
-    // Also trigger one shortly after load (once profile is likely set)
-    // Or we can trigger it in loadProfileByName
   }
 
   loadAllProfiles() {
@@ -142,8 +166,9 @@ export class Player implements OnInit, OnDestroy {
               this.profile.set(detailedProfile);
               this.currentVideoIndex.set(0);
               this.loading.set(false);
-              // Video play is now handled by (loadedmetadata) in the template automatically.
-              // Send initial heartbeat
+
+              // Reset heartbeat failure count on new profile load
+              this.heartbeatFailures = 0;
               this.api.sendHeartbeat(found.id).subscribe();
             },
             error: (e) => {
@@ -165,8 +190,6 @@ export class Player implements OnInit, OnDestroy {
   }
 
   selectProfile(p: Profile) {
-    // Try to enter fullscreen immediately on user interaction
-    // We use document.documentElement to ensure fullscreen persists even if the component re-renders
     try {
       if (!document.fullscreenElement) {
         document.documentElement.requestFullscreen().catch(err => {
@@ -178,8 +201,6 @@ export class Player implements OnInit, OnDestroy {
     }
     this.router.navigate(['/player', slugify(p.name)]);
   }
-
-  // Removed triggerPlay since we now use loadedmetadata
 
   onMetadataLoaded(event: any) {
     const video = event.target as HTMLVideoElement;
@@ -263,7 +284,8 @@ export class Player implements OnInit, OnDestroy {
               }
             }
           } else {
-            console.warn('Playlist became empty after update.');
+            console.warn('Playlist became empty after update. Redirecting to selection.');
+            this.backToSelection();
           }
         },
         error: (err) => {
@@ -284,8 +306,6 @@ export class Player implements OnInit, OnDestroy {
       this.currentVideoIndex.set(nextIndex);
     }
   }
-
-  // playWithDelay removed as we rely on native loadedmetadata event
 
   toggleFullscreen() {
     if (!document.fullscreenElement) {

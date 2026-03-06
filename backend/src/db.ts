@@ -5,7 +5,7 @@ const DB_FILE = path.join(__dirname, '../db.json');
 
 export interface Video {
     id: string;
-    filename: string; // The file saved in uploads/ (e.g. timestamp-original.mp4)
+    filename: string;
     originalName: string;
     size: number;
     uploadedAt: string;
@@ -14,8 +14,8 @@ export interface Video {
 export interface Profile {
     id: string;
     name: string;
-    videoIds: string[]; // List of video IDs assigned to this profile
-    lastSeen?: string; // ISO timestamp of last heartbeat
+    videoIds: string[];
+    lastSeen?: string;
 }
 
 export interface DatabaseSchema {
@@ -28,15 +28,43 @@ const initialData: DatabaseSchema = {
     profiles: []
 };
 
-// Ensure DB file exists
+// Ensure DB file exists on startup
 if (!fs.existsSync(DB_FILE)) {
-    fs.writeJsonSync(DB_FILE, initialData);
+    fs.writeJsonSync(DB_FILE, initialData, { spaces: 2 });
 }
 
+// Load the database into memory once on startup (fixes Memory & Performance Scaling)
+const dbCache: DatabaseSchema = fs.readJsonSync(DB_FILE);
+
+// Lock to ensure background disk writes happen sequentially
+let writeLock = Promise.resolve();
+
 export const getDb = async (): Promise<DatabaseSchema> => {
-    return fs.readJson(DB_FILE);
+    return dbCache; // Instant memory read
 };
 
-export const saveDb = async (data: DatabaseSchema): Promise<void> => {
-    await fs.writeJson(DB_FILE, data, { spaces: 2 });
+export const updateDb = async (updater: (db: DatabaseSchema) => void | Promise<void>): Promise<DatabaseSchema> => {
+    // 1. Instantly apply updates to the in-memory cache
+    await updater(dbCache);
+
+    // 2. Queue the disk write in the background so it doesn't block the API response
+    let release: () => void;
+    const nextLock = new Promise<void>(resolve => {
+        release = resolve;
+    });
+
+    const currentLock = writeLock;
+    writeLock = currentLock.then(() => nextLock);
+
+    currentLock.then(async () => {
+        try {
+            await fs.writeJson(DB_FILE, dbCache, { spaces: 2 });
+        } catch (err) {
+            console.error("Failed to write DB to disk:", err);
+        } finally {
+            release!();
+        }
+    });
+
+    return dbCache;
 };
