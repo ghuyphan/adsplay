@@ -94,6 +94,7 @@
           currentIndex: 0,
           currentProfile: null,
           currentVideoKey: '',
+          endedSafetyTimer: null,
           hasTriedAutoFullscreen: false,
           heartbeatTimer: null,
           profileSlug: '',
@@ -427,6 +428,83 @@
           }
         }
 
+        function clearEndedSafetyTimer() {
+          if (state.endedSafetyTimer) {
+            window.clearTimeout(state.endedSafetyTimer);
+            state.endedSafetyTimer = null;
+          }
+        }
+
+        function startEndedSafetyTimer(durationSeconds) {
+          clearEndedSafetyTimer();
+
+          if (!durationSeconds || !isFinite(durationSeconds) || durationSeconds <= 0) {
+            return;
+          }
+
+          state.endedSafetyTimer = window.setTimeout(function () {
+            advancePlayback('Dang chuyen sang video tiep theo.');
+          }, Math.max(2000, (durationSeconds + 2) * 1000));
+        }
+
+        function replayCurrentVideo() {
+          var currentVideo = getVideoAt(state.currentIndex);
+          var src;
+
+          if (!video || !currentVideo) {
+            return;
+          }
+
+          clearEndedSafetyTimer();
+
+          try {
+            video.pause();
+          } catch (error) {
+            return;
+          }
+
+          try {
+            video.currentTime = 0;
+            video.load();
+            safePlay();
+            return;
+          } catch (error) {
+            src = buildVideoUrl(currentVideo);
+            try {
+              video.removeAttribute('src');
+              video.load();
+            } catch (innerError) {
+              return;
+            }
+
+            window.setTimeout(function () {
+              if (!video) {
+                return;
+              }
+
+              video.src = src;
+              video.load();
+              safePlay();
+            }, 150);
+          }
+        }
+
+        function advancePlayback(reason) {
+          if (!state.currentProfile || !state.currentProfile.videos || !state.currentProfile.videos.length) {
+            return;
+          }
+
+          if (state.currentProfile.videos.length === 1) {
+            if (reason) {
+              setStatus(reason);
+            }
+            replayCurrentVideo();
+            return;
+          }
+
+          nextVideo(reason);
+        }
+
         function safePlay() {
           if (!video) {
             return;
@@ -469,6 +547,7 @@
           var src;
 
           if (!currentVideo) {
+            clearEndedSafetyTimer();
             if (video) {
               video.removeAttribute('src');
               video.load();
@@ -512,6 +591,8 @@
           if (!state.currentProfile || !state.currentProfile.videos || !state.currentProfile.videos.length) {
             return;
           }
+
+          clearEndedSafetyTimer();
 
           if (reason) {
             setStatus(reason);
@@ -633,9 +714,10 @@
             bindFullscreenGesture(video, 'click');
             bindFullscreenGesture(video, 'touchend');
             video.onended = function () {
-              nextVideo('Dang chuyen sang video tiep theo.');
+              advancePlayback('Dang chuyen sang video tiep theo.');
             };
             video.onerror = function () {
+              clearEndedSafetyTimer();
               if (!state.currentProfile || !state.currentProfile.videos || state.currentProfile.videos.length < 2) {
                 setStatus('Khong phat duoc video hien tai. Dang tai lai playlist...');
                 window.setTimeout(function () {
@@ -647,9 +729,13 @@
               nextVideo('Video hien tai loi. Dang bo qua video tiep theo.');
             };
             video.onloadedmetadata = function () {
+              startEndedSafetyTimer(video.duration);
               tryEnterFullscreen(false);
               setStatus('Dang phat noi dung.');
               safePlay();
+            };
+            video.onplaying = function () {
+              startEndedSafetyTimer(video.duration);
             };
           }
 
