@@ -38,6 +38,12 @@ export const createApp = () => {
         }),
     );
 
+    app.get(['/player-legacy', '/player-legacy/:profileName'], (_req, res) => {
+        const legacyPlayerFile = path.join(config.frontendDistDir, 'player-legacy.html');
+        res.setHeader('Cache-Control', 'no-store');
+        res.sendFile(legacyPlayerFile);
+    });
+
     app.use(express.static(config.frontendDistDir));
 
     app.use('/api', notFoundMiddleware);

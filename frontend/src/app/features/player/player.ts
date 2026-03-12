@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, DestroyRef, ElementRef, OnDestroy, OnInit, ViewChild, inject } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { combineLatest } from 'rxjs';
 import { PlayerSessionService } from './player-session.service';
 
 @Component({
@@ -28,9 +29,11 @@ export class Player implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.session.initialize();
-    this.route.params.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
-      this.session.handleProfileSlug(params['profileName']);
-    });
+    combineLatest([this.route.params, this.route.queryParamMap])
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(([params, queryParamMap]) => {
+        this.session.handleRoute(params['profileName'], queryParamMap.get('token'));
+      });
   }
 
   ngOnDestroy() {

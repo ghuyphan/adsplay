@@ -7,22 +7,26 @@ import type { UploadSessionManifest } from '../types';
 
 const config = getConfig();
 
-const getSessionId = (fileKey: string) =>
-    crypto.createHash('sha1').update(fileKey).digest('hex');
-
 const getSessionDir = (sessionId: string) => path.join(config.uploadSessionsDir, sessionId);
 const getManifestPath = (sessionId: string) => path.join(getSessionDir(sessionId), 'manifest.json');
 const getChunksDir = (sessionId: string) => path.join(getSessionDir(sessionId), 'chunks');
 const getChunkPath = (sessionId: string, chunkIndex: number) =>
     path.join(getChunksDir(sessionId), `${chunkIndex.toString().padStart(6, '0')}.part`);
 
-const readManifest = async (sessionId: string): Promise<UploadSessionManifest | null> => {
-    const manifestPath = getManifestPath(sessionId);
+const readManifestFile = async (manifestPath: string): Promise<UploadSessionManifest | null> => {
     if (!(await fs.pathExists(manifestPath))) {
         return null;
     }
 
-    return fs.readJson(manifestPath);
+    try {
+        return await fs.readJson(manifestPath);
+    } catch {
+        return null;
+    }
+};
+
+const readManifest = async (sessionId: string): Promise<UploadSessionManifest | null> => {
+    return readManifestFile(getManifestPath(sessionId));
 };
 
 const writeManifest = async (manifest: UploadSessionManifest) => {
@@ -45,13 +49,20 @@ const listUploadedChunkIndexes = async (sessionId: string) => {
         .sort((left, right) => left - right);
 };
 
+const haveSameUploadedChunkIndexes = (left: number[], right: number[]) =>
+    left.length === right.length && left.every((value, index) => value === right[index]);
+
+const hasAllChunks = (uploadedChunkIndexes: number[], totalChunks: number) =>
+    uploadedChunkIndexes.length === totalChunks &&
+    uploadedChunkIndexes.every((chunkIndex, expectedIndex) => chunkIndex === expectedIndex);
+
 const normalizeManifest = async (manifest: UploadSessionManifest) => {
     if (manifest.status === 'completed') {
         return manifest;
     }
 
     const uploadedChunkIndexes = await listUploadedChunkIndexes(manifest.id);
-    if (uploadedChunkIndexes.length !== manifest.uploadedChunkIndexes.length) {
+    if (!haveSameUploadedChunkIndexes(uploadedChunkIndexes, manifest.uploadedChunkIndexes)) {
         manifest.uploadedChunkIndexes = uploadedChunkIndexes;
         manifest.updatedAt = new Date().toISOString();
         await writeManifest(manifest);
@@ -60,35 +71,67 @@ const normalizeManifest = async (manifest: UploadSessionManifest) => {
     return manifest;
 };
 
+const matchesUploadInput = (
+    manifest: UploadSessionManifest,
+    input: {
+        fileKey: string;
+        mimeType: string;
+        originalName: string;
+        totalSizeBytes: number;
+    },
+) =>
+    manifest.status !== 'completed' &&
+    manifest.fileKey === input.fileKey &&
+    manifest.totalSizeBytes === input.totalSizeBytes &&
+    manifest.mimeType === input.mimeType &&
+    manifest.originalName === input.originalName;
+
+const findResumableSession = async (input: {
+    fileKey: string;
+    mimeType: string;
+    originalName: string;
+    totalSizeBytes: number;
+}) => {
+    const sessionIds = await fs.readdir(config.uploadSessionsDir);
+    let latestMatch: UploadSessionManifest | null = null;
+
+    for (const sessionId of sessionIds) {
+        const manifest = await readManifest(sessionId);
+        if (!manifest || !matchesUploadInput(manifest, input)) {
+            continue;
+        }
+
+        const normalizedManifest = await normalizeManifest(manifest);
+        if (
+            !latestMatch ||
+            new Date(normalizedManifest.updatedAt).getTime() > new Date(latestMatch.updatedAt).getTime()
+        ) {
+            latestMatch = normalizedManifest;
+        }
+    }
+
+    return latestMatch;
+};
+
 export const createOrResumeUploadSession = async (input: {
     fileKey: string;
     mimeType: string;
     originalName: string;
     totalSizeBytes: number;
 }) => {
-    const sessionId = getSessionId(input.fileKey);
     const totalChunks = Math.max(1, Math.ceil(input.totalSizeBytes / config.resumableChunkSizeBytes));
     const now = new Date().toISOString();
 
-    const existing = await readManifest(sessionId);
-    if (
-        existing &&
-        existing.status !== 'completed' &&
-        existing.fileKey === input.fileKey &&
-        existing.totalSizeBytes === input.totalSizeBytes &&
-        existing.mimeType === input.mimeType &&
-        existing.originalName === input.originalName
-    ) {
+    const existing = await findResumableSession(input);
+    if (existing) {
         return normalizeManifest(existing);
     }
-
-    await fs.remove(getSessionDir(sessionId));
 
     const manifest: UploadSessionManifest = {
         chunkSizeBytes: config.resumableChunkSizeBytes,
         createdAt: now,
         fileKey: input.fileKey,
-        id: sessionId,
+        id: crypto.randomUUID(),
         mimeType: input.mimeType,
         originalName: input.originalName,
         status: 'uploading',
@@ -127,7 +170,7 @@ export const storeUploadChunk = async (sessionId: string, chunkIndex: number, ch
             ? manifest.totalSizeBytes - chunkIndex * manifest.chunkSizeBytes
             : manifest.chunkSizeBytes;
 
-    if (chunk.length > expectedChunkSize || chunk.length === 0) {
+    if (chunk.length !== expectedChunkSize) {
         throw new AppError(400, 'UPLOAD_CHUNK_INVALID_SIZE', 'Chunk size does not match the expected size.');
     }
 
@@ -149,7 +192,7 @@ export const finalizeUploadSession = async (sessionId: string) => {
         return manifest;
     }
 
-    if (manifest.uploadedChunkIndexes.length !== manifest.totalChunks) {
+    if (!hasAllChunks(manifest.uploadedChunkIndexes, manifest.totalChunks)) {
         throw new AppError(409, 'UPLOAD_INCOMPLETE', 'Not all chunks have been uploaded yet.');
     }
 
@@ -171,7 +214,7 @@ export const markUploadSessionCompleted = async (sessionId: string, videoId: str
 
 export const consumeUploadSessionToFile = async (sessionId: string, destinationPath: string) => {
     const manifest = await getUploadSession(sessionId);
-    if (manifest.uploadedChunkIndexes.length !== manifest.totalChunks) {
+    if (!hasAllChunks(manifest.uploadedChunkIndexes, manifest.totalChunks)) {
         throw new AppError(409, 'UPLOAD_INCOMPLETE', 'Upload session is missing chunks.');
     }
 
@@ -198,6 +241,15 @@ export const consumeUploadSessionToFile = async (sessionId: string, destinationP
             reject(error);
         }
     });
+
+    const stats = await fs.stat(destinationPath);
+    if (stats.size !== manifest.totalSizeBytes) {
+        throw new AppError(
+            409,
+            'UPLOAD_ASSEMBLED_SIZE_MISMATCH',
+            'Assembled upload size does not match the expected size.',
+        );
+    }
 
     return manifest;
 };

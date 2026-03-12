@@ -34,7 +34,7 @@
                   {{ profile.videoIds.length }} video
                 </span>
                 <span class="rounded-full bg-slate-100 px-2 py-1 font-bold text-slate-500 dark:bg-white/10 dark:text-slate-400">
-                  {{ profile.slug || getPlayerUrl(profile.name).split('/').pop() }}
+                  {{ profile.slug }}
                 </span>
                 <span
                   class="rounded-full px-2 py-1 font-bold"
@@ -57,13 +57,31 @@
           </div>
         </div>
 
-        <div class="flex items-center justify-between bg-slate-50 px-6 py-4 dark:bg-black/20">
-          <a
-            [href]="getPlayerUrl(profile.name)"
-            target="_blank"
-            class="max-w-[12rem] truncate text-xs font-mono text-slate-500 transition-colors hover:text-brand-primary dark:text-slate-400">
-            {{ getPlayerUrl(profile.name) }}
-          </a>
+        <div class="flex items-center justify-between gap-4 bg-slate-50 px-6 py-4 dark:bg-black/20">
+          <div class="min-w-0 space-y-2">
+            <div>
+              <div class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
+                Player mới
+              </div>
+              <a
+                [href]="getProfilePlayerUrl(profile)"
+                target="_blank"
+                class="block max-w-[12rem] truncate text-xs font-mono text-slate-500 transition-colors hover:text-brand-primary dark:text-slate-400">
+                {{ getProfilePlayerUrl(profile) }}
+              </a>
+            </div>
+            <div>
+              <div class="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-500/80">
+                TV cũ
+              </div>
+              <a
+                [href]="getLegacyPlayerUrl(profile)"
+                target="_blank"
+                class="block max-w-[12rem] truncate text-xs font-mono text-amber-600 transition-colors hover:text-amber-500 dark:text-amber-300">
+                {{ getLegacyPlayerUrl(profile) }}
+              </a>
+            </div>
+          </div>
 
           <div class="flex items-center gap-2">
             <button

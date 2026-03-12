@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import fs from 'fs-extra';
 import path from 'node:path';
 import { dbRepository } from '../db';
@@ -33,7 +34,7 @@ const createVideoRecord = async (input: {
 }) => {
     const video = await dbRepository.saveVideo({
         filename: input.filename,
-        id: Date.now().toString(),
+        id: crypto.randomUUID(),
         mimeType: input.mimeType,
         originalName: input.originalName,
         processingStatus: config.mediaProcessingEnabled ? 'pending' : 'ready',
@@ -89,7 +90,14 @@ export const getVideoStreamFile = async (id: string) => {
     const video = await getVideoById(id);
     const preferredPath = path.join(config.uploadsDir, video.filename);
     const sourcePath = path.join(config.uploadsDir, video.sourceFilename);
-    const selectedPath = (await fs.pathExists(preferredPath)) ? preferredPath : sourcePath;
+    const preferredExists = await fs.pathExists(preferredPath);
+    const sourceExists = await fs.pathExists(sourcePath);
+
+    if (!preferredExists && !sourceExists) {
+        throw new AppError(404, 'VIDEO_FILE_NOT_FOUND', 'Video file is missing from disk.');
+    }
+
+    const selectedPath = preferredExists ? preferredPath : sourcePath;
 
     return {
         absolutePath: selectedPath,

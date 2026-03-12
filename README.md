@@ -47,20 +47,27 @@ Use the developer sections to understand the codebase, local development flow, m
 - A TV, tablet, or monitor on the same Wi-Fi or LAN
 - Node.js installed on the host computer
 
+### First launch
+
+- The first launch may take a few minutes because AdPlay can install dependencies and build the app automatically
+- AdPlay creates `backend/.env` for local settings if it does not exist yet
+- AdPlay writes `AdPlay Access.txt` with the admin URL, player URL, and login details
+- Your browser should open automatically to the admin dashboard
+
 ### Start the app
 
 #### macOS / Linux
 
-Development mode:
+Double-click:
+
+```text
+start.command
+```
+
+Or run in Terminal:
 
 ```bash
 ./start.sh
-```
-
-Production mode:
-
-```bash
-./start.sh prod
 ```
 
 #### Windows
@@ -71,23 +78,13 @@ Double-click:
 start.bat
 ```
 
-Then choose development or production mode.
-
 ### Open the admin dashboard
-
-In development mode:
-
-```text
-http://localhost:4200/admin
-```
-
-In production mode:
 
 ```text
 http://localhost:3000/admin
 ```
 
-Default login:
+Default local login:
 
 - Username: `admin`
 - Password: `admin`
@@ -101,17 +98,11 @@ Default login:
 ### Open the player on a TV or tablet
 
 1. Make sure the screen device is on the same local network
-2. Use the local IP shown by AdPlay in the terminal
+2. Open `AdPlay Access.txt` or copy the player link from the dashboard
 3. Open that address in the TV or tablet browser
 4. Choose a profile and start playback
 
 Example:
-
-```text
-http://192.168.1.50:4200/player
-```
-
-or in production mode:
 
 ```text
 http://192.168.1.50:3000/player
@@ -131,9 +122,8 @@ http://192.168.1.50:3000/player
 ### I cannot open the admin page
 
 - Make sure the app is still running
-- Check whether you started development mode or production mode
-- Use `4200` for frontend dev mode
-- Use `3000` for production mode
+- Use `http://localhost:3000/admin`
+- If the browser did not open automatically, check `AdPlay Access.txt`
 
 ### My TV cannot load the player
 
@@ -229,8 +219,10 @@ npm run test:ci
 
 - `frontend/` Angular admin UI and player UI
 - `backend/` Express API, upload handling, streaming, local JSON storage
-- `start.sh` simple launcher for macOS/Linux
-- `start.bat` simple launcher for Windows
+- `launch-adplay.cjs` one-click launcher used by the helper scripts
+- `start.command` double-click launcher for macOS
+- `start.sh` Terminal launcher for macOS/Linux
+- `start.bat` double-click launcher for Windows
 
 ### Frontend
 
@@ -342,12 +334,13 @@ This is a strong local-first media pipeline, but it is still not a full media pl
 
 ## Environment Variables
 
-Create a `.env` file inside `backend/`.
+The one-click launcher creates `backend/.env` automatically on first run, and the backend loads it automatically on startup.
+
+If you want to manage the config yourself, create a `.env` file inside `backend/`.
 
 Example:
 
 ```env
-NODE_ENV=development
 PORT=3000
 JWT_SECRET=change-me
 ADMIN_USERNAME=admin
@@ -460,7 +453,7 @@ If you run this in production:
 
 - change the default admin credentials
 - set a strong `JWT_SECRET`
-- use production mode
+- run with `NODE_ENV=production`
 - keep regular backups of `db.json` and the `uploads/` folder
 - make sure the host machine has enough disk space for raw and optimized videos
 
@@ -472,14 +465,13 @@ AdPlay là hệ thống phát nội dung nội bộ qua mạng LAN, phù hợp c
 
 ### Cách dùng nhanh
 
-1. Chạy `./start.sh` trên Mac/Linux hoặc `start.bat` trên Windows
-2. Vào trang quản trị:
-   - Dev mode: `http://localhost:4200/admin`
-   - Production mode: `http://localhost:3000/admin`
-3. Đăng nhập bằng `admin / admin`
-4. Upload video
-5. Tạo Profile
-6. Mở đường dẫn player trên TV hoặc tablet cùng mạng nội bộ
+1. Chạy `start.command` trên macOS, `./start.sh` trên Linux/macOS Terminal, hoặc `start.bat` trên Windows
+2. Chờ lần chạy đầu tự cài đặt và build xong
+3. Vào trang quản trị: `http://localhost:3000/admin`
+4. Đăng nhập bằng `admin / admin`
+5. Mở file `AdPlay Access.txt` để lấy link player cho TV/tablet cùng mạng nội bộ
+6. Upload video
+7. Tạo Profile
 
 ### Nếu bạn muốn sửa code
 

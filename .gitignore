@@ -23,3 +23,6 @@ backend/db.json
 
 # Logs
 *.log
+
+# Local launcher output
+AdPlay Access.txt

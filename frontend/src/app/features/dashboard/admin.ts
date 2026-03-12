@@ -1,4 +1,4 @@
-import { Component, HostListener, OnInit, inject, signal } from '@angular/core';
+import { Component, HostListener, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../services/auth.service';
 import { ThemeToggle } from '../../shared/ui/theme-toggle/theme-toggle';
@@ -17,11 +17,23 @@ import { DashboardStore, SaveProfilePayload } from './dashboard.store';
 export class Admin implements OnInit {
   readonly store = inject(DashboardStore);
   private readonly authService = inject(AuthService);
+  readonly playerUrl = computed(() => {
+    if (typeof window === 'undefined') {
+      return '';
+    }
+
+    const url = new URL(window.location.origin);
+    const localIp = this.store.systemInfo()?.localIps?.[0];
+    if (localIp) {
+      url.hostname = localIp;
+    }
+
+    return `${url.origin}/player`;
+  });
 
   activeTab: 'videos' | 'profiles' = 'videos';
   isMobileMenuOpen = signal(false);
   videoDeletingId = signal<string | null>(null);
-  playerUrl = signal('');
   copySuccess = signal(false);
 
   @HostListener('window:beforeunload', ['$event'])
@@ -34,10 +46,6 @@ export class Admin implements OnInit {
 
   ngOnInit() {
     this.store.initialize();
-
-    if (typeof window !== 'undefined') {
-      this.playerUrl.set(`${window.location.origin}/player`);
-    }
   }
 
   onLogout() {
@@ -76,6 +84,10 @@ export class Admin implements OnInit {
 
   copyUrl() {
     const url = this.playerUrl();
+    if (!url) {
+      return;
+    }
+
     if (navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(url).then(() => this.showCopySuccess());
       return;

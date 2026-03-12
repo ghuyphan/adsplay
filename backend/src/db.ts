@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import fs from 'fs-extra';
 import { getConfig } from './config';
 import type { DatabaseSchema, Profile, User, Video } from './types';
@@ -11,6 +12,8 @@ const initialData: DatabaseSchema = {
     videos: [],
 };
 
+const createEntityId = () => crypto.randomUUID();
+
 const normalizeVideo = (video: Partial<Video>): Video => {
     const timestamp = video.uploadedAt || video.createdAt || new Date().toISOString();
 
@@ -19,7 +22,7 @@ const normalizeVideo = (video: Partial<Video>): Video => {
         filename: video.filename || '',
         durationSeconds: video.durationSeconds,
         height: video.height,
-        id: video.id || Date.now().toString(),
+        id: video.id || createEntityId(),
         mimeType: video.mimeType,
         originalName: video.originalName || '',
         processingError: video.processingError,
@@ -40,7 +43,7 @@ const normalizeProfile = (profile: Partial<Profile>): Profile => {
 
     return {
         createdAt: profile.createdAt || timestamp,
-        id: profile.id || Date.now().toString(),
+        id: profile.id || createEntityId(),
         lastSeen: profile.lastSeen,
         name: profile.name || '',
         updatedAt: profile.updatedAt || timestamp,
@@ -67,7 +70,7 @@ const persist = async () => {
 };
 
 const queueWrite = async () => {
-    writeLock = writeLock.then(() => persist());
+    writeLock = writeLock.catch(() => undefined).then(() => persist());
     await writeLock;
 };
 
@@ -129,7 +132,7 @@ export const dbRepository = {
             db.profiles.push(
                 normalizeProfile({
                     createdAt: now,
-                    id: Date.now().toString(),
+                    id: createEntityId(),
                     name: input.name,
                     updatedAt: now,
                     videoIds: input.videoIds,

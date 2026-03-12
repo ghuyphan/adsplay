@@ -1,7 +1,6 @@
 import { Injectable, NgZone, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { ApiService, Profile, Video } from '../../services/api.service';
-import { slugify } from '../../shared/utils/slugify';
+import { ApiService, PlayerProfile, PlayerProfileSummary, Video } from '../../services/api.service';
 
 @Injectable()
 export class PlayerSessionService {
@@ -13,8 +12,8 @@ export class PlayerSessionService {
   private readonly zone = inject(NgZone);
 
   readonly isFullscreen = signal(false);
-  readonly profile = signal<Profile | null>(null);
-  readonly allProfiles = signal<Profile[]>([]);
+  readonly profile = signal<PlayerProfile | null>(null);
+  readonly allProfiles = signal<PlayerProfileSummary[]>([]);
   readonly currentVideoIndex = signal(0);
   readonly loading = signal(true);
   readonly showUnmuteOverlay = signal(false);
@@ -34,6 +33,7 @@ export class PlayerSessionService {
   private heartbeatFailures = 0;
   private isPlaylistUpdated = false;
   private activeLoadToken = 0;
+  private playerAccessToken: string | null = null;
   private readonly prefetchingUrls = new Set<string>();
 
   private readonly onFullscreenChangeBound = () => {
@@ -85,7 +85,6 @@ export class PlayerSessionService {
     }, 24 * 60 * 60 * 1000);
 
     this.resetActivityTimer();
-    this.startHeartbeat();
   }
 
   destroy() {
@@ -95,18 +94,14 @@ export class PlayerSessionService {
     window.removeEventListener('online', this.onNetworkRestoreBound);
     window.removeEventListener('offline', this.onNetworkLostBound);
 
-    if (this.heartbeatInterval) {
-      window.clearInterval(this.heartbeatInterval);
-    }
+    this.stopHeartbeat();
     if (this.activityTimeout) {
       window.clearTimeout(this.activityTimeout);
     }
     if (this.autoReloadInterval) {
       window.clearInterval(this.autoReloadInterval);
     }
-    if (this.playlistSyncInterval) {
-      window.clearInterval(this.playlistSyncInterval);
-    }
+    this.stopPlaylistSync();
     if (this.endedSafetyTimeout) {
       window.clearTimeout(this.endedSafetyTimeout);
     }
@@ -130,12 +125,16 @@ export class PlayerSessionService {
     this.containerElement = element;
   }
 
-  handleProfileSlug(profileSlug?: string) {
+  handleRoute(profileSlug?: string, playerAccessToken?: string | null) {
+    this.playerAccessToken = playerAccessToken || null;
+
     if (profileSlug) {
       this.loadProfileBySlug(profileSlug);
       return;
     }
 
+    this.stopHeartbeat(true);
+    this.stopPlaylistSync();
     this.profile.set(null);
     this.showUnmuteOverlay.set(false);
     this.releaseCurrentObjectUrl();
@@ -144,11 +143,11 @@ export class PlayerSessionService {
     this.loadAllProfiles();
   }
 
-  selectProfile(profile: Profile) {
+  selectProfile(profile: PlayerProfileSummary) {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(() => undefined);
     }
-    this.router.navigate(['/player', profile.slug || slugify(profile.name)]);
+    void this.router.navigate(['/player', profile.slug]);
   }
 
   onVideoEnded() {
@@ -192,8 +191,14 @@ export class PlayerSessionService {
   }
 
   backToSelection() {
+    this.stopHeartbeat(true);
+    this.stopPlaylistSync();
+    this.playerAccessToken = null;
     this.profile.set(null);
-    this.router.navigate(['/player']);
+    this.showUnmuteOverlay.set(false);
+    this.releaseCurrentObjectUrl();
+    this.localVideoUrl.set('');
+    void this.router.navigate(['/player']);
   }
 
   private resetActivityTimer() {
@@ -215,38 +220,62 @@ export class PlayerSessionService {
   }
 
   private startHeartbeat() {
-    const sendPulse = () => {
-      const profile = this.profile();
-      if (!profile?.id) {
-        return;
-      }
+    const profile = this.profile();
+    if (!profile?.slug || !this.playerAccessToken || this.heartbeatInterval) {
+      return;
+    }
 
-      this.api.sendHeartbeat(profile.id).subscribe({
-        next: () => {
-          this.heartbeatFailures = 0;
-        },
-        error: () => {
-          this.heartbeatFailures += 1;
-          if (this.heartbeatFailures >= 5 && this.heartbeatInterval) {
-            window.clearInterval(this.heartbeatInterval);
-            this.heartbeatInterval = null;
-            this.statusMessage.set('Không gửi được heartbeat. Đang tạm dừng đồng bộ nền.');
-          }
-        },
-      });
-    };
-
-    this.heartbeatInterval = window.setInterval(sendPulse, 30000);
+    this.heartbeatInterval = window.setInterval(() => {
+      this.sendHeartbeatPulse();
+    }, 30000);
+    this.sendHeartbeatPulse();
   }
 
   private startPlaylistSync() {
-    if (this.playlistSyncInterval) {
-      window.clearInterval(this.playlistSyncInterval);
-    }
+    this.stopPlaylistSync();
 
     this.playlistSyncInterval = window.setInterval(() => {
       this.triggerManualSync();
     }, 60000);
+  }
+
+  private stopHeartbeat(resetFailures = false) {
+    if (this.heartbeatInterval) {
+      window.clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+
+    if (resetFailures) {
+      this.heartbeatFailures = 0;
+    }
+  }
+
+  private stopPlaylistSync() {
+    if (this.playlistSyncInterval) {
+      window.clearInterval(this.playlistSyncInterval);
+      this.playlistSyncInterval = null;
+    }
+  }
+
+  private sendHeartbeatPulse() {
+    const profile = this.profile();
+    const playerAccessToken = this.playerAccessToken;
+    if (!profile?.slug || !playerAccessToken) {
+      return;
+    }
+
+    this.api.sendHeartbeat(profile.slug, playerAccessToken).subscribe({
+      next: () => {
+        this.heartbeatFailures = 0;
+      },
+      error: () => {
+        this.heartbeatFailures += 1;
+        if (this.heartbeatFailures >= 5) {
+          this.stopHeartbeat();
+          this.statusMessage.set('Không gửi được heartbeat. Đang tạm dừng đồng bộ nền.');
+        }
+      },
+    });
   }
 
   private triggerManualSync() {
@@ -257,6 +286,11 @@ export class PlayerSessionService {
 
     this.api.getProfileBySlug(activeProfile.slug).subscribe({
       next: (updatedProfile) => {
+        this.heartbeatFailures = 0;
+        if (!this.heartbeatInterval) {
+          this.startHeartbeat();
+        }
+
         const currentVideosHash = activeProfile.videos?.map((video) => video.id).join(',') || '';
         const newVideosHash = updatedProfile.videos?.map((video) => video.id).join(',') || '';
 
@@ -274,7 +308,7 @@ export class PlayerSessionService {
 
   private loadAllProfiles() {
     this.loading.set(true);
-    this.api.getProfiles().subscribe({
+    this.api.getPlayerProfiles().subscribe({
       next: (profiles) => {
         this.allProfiles.set(profiles);
         this.loading.set(false);
@@ -287,6 +321,8 @@ export class PlayerSessionService {
   }
 
   private loadProfileBySlug(profileSlug: string) {
+    this.stopHeartbeat(true);
+    this.stopPlaylistSync();
     this.loading.set(true);
     this.api.getProfileBySlug(profileSlug).subscribe({
       next: (profile) => {
@@ -295,9 +331,9 @@ export class PlayerSessionService {
         this.loading.set(false);
         this.statusMessage.set(null);
         this.heartbeatFailures = 0;
-        this.api.sendHeartbeat(profile.id).subscribe({ error: () => undefined });
+        this.startHeartbeat();
 
-        if (profile.videos?.length) {
+        if (profile.videos.length) {
           void this.syncCacheWithBackend(profile.videos);
           void this.loadAndPlayVideo(0);
         } else {
@@ -308,9 +344,12 @@ export class PlayerSessionService {
         this.startPlaylistSync();
       },
       error: () => {
+        this.stopHeartbeat(true);
+        this.stopPlaylistSync();
         this.loading.set(false);
         this.statusMessage.set('Không tìm thấy màn hình được yêu cầu.');
-        this.router.navigate(['/player']);
+        this.profile.set(null);
+        void this.router.navigate(['/player']);
       },
     });
   }

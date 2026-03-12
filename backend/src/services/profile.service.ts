@@ -1,9 +1,19 @@
 import { dbRepository } from '../db';
 import { AppError } from '../errors';
-import type { DetailedProfile, Profile, Video } from '../types';
+import type {
+    AdminDetailedProfile,
+    AdminProfile,
+    DetailedProfile,
+    PlayerProfile,
+    PlayerProfileSummary,
+    Profile,
+    Video,
+} from '../types';
 import { slugify } from '../utils/slugify';
+import { createProfileHeartbeatToken, verifyProfileHeartbeatToken } from './auth.service';
 
 const toVideoMap = (videos: Video[]) => new Map(videos.map((video) => [video.id, video] as const));
+const toProfileSlug = (profile: Pick<Profile, 'name'>) => slugify(profile.name);
 
 const withVideos = async (profile: Profile): Promise<DetailedProfile> => {
     const videos = await dbRepository.listVideos();
@@ -14,17 +24,42 @@ const withVideos = async (profile: Profile): Promise<DetailedProfile> => {
 
     return {
         ...profile,
-        slug: slugify(profile.name),
+        slug: toProfileSlug(profile),
         videos: mappedVideos,
     };
 };
 
+const toAdminProfile = (profile: Profile): AdminProfile => ({
+    ...profile,
+    playerAccessToken: createProfileHeartbeatToken(profile),
+    slug: toProfileSlug(profile),
+});
+
+const toAdminDetailedProfile = (profile: DetailedProfile): AdminDetailedProfile => ({
+    ...profile,
+    playerAccessToken: createProfileHeartbeatToken(profile),
+});
+
+const toPlayerProfileSummary = (profile: Profile): PlayerProfileSummary => ({
+    name: profile.name,
+    slug: toProfileSlug(profile),
+    videoCount: profile.videoIds.length,
+});
+
+const toPlayerProfile = (profile: DetailedProfile): PlayerProfile => ({
+    name: profile.name,
+    slug: profile.slug,
+    videos: profile.videos,
+});
+
 export const listProfiles = async () => {
     const profiles = await dbRepository.listProfiles();
-    return profiles.map((profile) => ({
-        ...profile,
-        slug: slugify(profile.name),
-    }));
+    return profiles.map(toAdminProfile);
+};
+
+export const listPublicProfiles = async () => {
+    const profiles = await dbRepository.listProfiles();
+    return profiles.map(toPlayerProfileSummary);
 };
 
 export const getDetailedProfileById = async (id: string) => {
@@ -33,7 +68,7 @@ export const getDetailedProfileById = async (id: string) => {
         throw new AppError(404, 'PROFILE_NOT_FOUND', 'Profile not found.');
     }
 
-    return withVideos(profile);
+    return toAdminDetailedProfile(await withVideos(profile));
 };
 
 export const getDetailedProfileBySlug = async (profileSlug: string) => {
@@ -42,7 +77,7 @@ export const getDetailedProfileBySlug = async (profileSlug: string) => {
         throw new AppError(404, 'PROFILE_NOT_FOUND', 'Profile not found.');
     }
 
-    return withVideos(profile);
+    return toPlayerProfile(await withVideos(profile));
 };
 
 export const saveProfile = async (input: { id?: string; name: string; videoIds: string[] }) => {
@@ -80,7 +115,7 @@ export const saveProfile = async (input: { id?: string; name: string; videoIds: 
         throw new AppError(500, 'PROFILE_SAVE_FAILED', 'Failed to save profile.');
     }
 
-    return withVideos(savedProfile);
+    return toAdminDetailedProfile(await withVideos(savedProfile));
 };
 
 export const removeProfile = async (id: string) => {
@@ -97,4 +132,18 @@ export const markProfileHeartbeat = async (id: string) => {
     }
 
     await dbRepository.touchProfile(id, new Date().toISOString());
+};
+
+export const markProfileHeartbeatBySlug = async (profileSlug: string, token: string) => {
+    const profile = await dbRepository.findProfileBySlug(profileSlug);
+    if (!profile) {
+        throw new AppError(404, 'PROFILE_NOT_FOUND', 'Profile not found.');
+    }
+
+    const payload = verifyProfileHeartbeatToken(token, profileSlug);
+    if (payload.profileId !== profile.id) {
+        throw new AppError(403, 'PROFILE_HEARTBEAT_INVALID', 'Player heartbeat token is invalid.');
+    }
+
+    await dbRepository.touchProfile(profile.id, new Date().toISOString());
 };

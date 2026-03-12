@@ -2,8 +2,69 @@ import { Injectable, inject } from '@angular/core';
 import { firstValueFrom, lastValueFrom } from 'rxjs';
 import { ApiService, UploadSession, Video } from '../../services/api.service';
 
-export const buildUploadFileKey = (file: File) =>
-  `${file.name}:${file.size}:${file.lastModified}`;
+const UPLOAD_CLIENT_ID_STORAGE_KEY = 'adplay-upload-client-id';
+
+let inMemoryUploadClientId: string | null = null;
+
+const createUploadClientId = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return `upload-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+};
+
+const readStoredUploadClientId = () => {
+  if (typeof localStorage === 'undefined') {
+    return null;
+  }
+
+  return localStorage.getItem(UPLOAD_CLIENT_ID_STORAGE_KEY);
+};
+
+const writeStoredUploadClientId = (clientId: string) => {
+  if (typeof localStorage === 'undefined') {
+    return;
+  }
+
+  localStorage.setItem(UPLOAD_CLIENT_ID_STORAGE_KEY, clientId);
+};
+
+const hashUploadFingerprint = (value: string) => {
+  let hash = 0x811c9dc5;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+
+  return (hash >>> 0).toString(16).padStart(8, '0');
+};
+
+export const getUploadClientId = () => {
+  if (inMemoryUploadClientId) {
+    return inMemoryUploadClientId;
+  }
+
+  const storedClientId = readStoredUploadClientId();
+  if (storedClientId) {
+    inMemoryUploadClientId = storedClientId;
+    return storedClientId;
+  }
+
+  const nextClientId = createUploadClientId();
+  writeStoredUploadClientId(nextClientId);
+  inMemoryUploadClientId = nextClientId;
+  return nextClientId;
+};
+
+export const buildUploadFileKey = (
+  file: Pick<File, 'lastModified' | 'name' | 'size'>,
+  clientId = getUploadClientId(),
+) => {
+  const fileFingerprint = `${file.name}:${file.size}:${file.lastModified}`;
+  return `${clientId}:${hashUploadFingerprint(fileFingerprint)}`;
+};
 
 @Injectable({
   providedIn: 'root',

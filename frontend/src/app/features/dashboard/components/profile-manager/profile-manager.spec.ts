@@ -20,6 +20,8 @@ const profile = (partial: Partial<Profile>): Profile => ({
   createdAt: '2026-03-10T00:00:00.000Z',
   id: 'profile-1',
   name: 'Lobby',
+  playerAccessToken: 'player-token',
+  slug: 'lobby',
   updatedAt: '2026-03-10T00:00:00.000Z',
   videoIds: ['1'],
   ...partial,
@@ -59,5 +61,24 @@ describe('ProfileManager', () => {
     component.save();
 
     expect(component.formError).toContain('slug');
+  });
+
+  it('builds a dedicated legacy player URL for old TVs', () => {
+    const component = new ProfileManager();
+    component.localIps = ['192.168.1.25'];
+
+    const url = new URL(
+      component.getLegacyPlayerUrl(
+        profile({
+          name: 'Lobby Screen',
+          playerAccessToken: 'legacy-token',
+          slug: 'lobby-screen',
+        }),
+      ),
+    );
+
+    expect(url.hostname).toBe('192.168.1.25');
+    expect(url.pathname).toBe('/player-legacy/lobby-screen');
+    expect(url.searchParams.get('token')).toBe('legacy-token');
   });
 });

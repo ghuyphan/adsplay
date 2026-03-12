@@ -1,9 +1,47 @@
 import path from 'node:path';
 import fs from 'fs-extra';
 
+const ENV_FILE_PATH = path.join(__dirname, '../.env');
 const DEFAULT_JWT_SECRET = 'your-secret-key-change-me';
 const DEFAULT_ADMIN_USERNAME = 'admin';
 const DEFAULT_ADMIN_PASSWORD = 'admin';
+
+const loadEnvFile = () => {
+    if (!fs.existsSync(ENV_FILE_PATH)) {
+        return;
+    }
+
+    const lines = fs.readFileSync(ENV_FILE_PATH, 'utf8').split(/\r?\n/);
+
+    for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (!trimmedLine || trimmedLine.startsWith('#')) {
+            continue;
+        }
+
+        const separatorIndex = trimmedLine.indexOf('=');
+        if (separatorIndex === -1) {
+            continue;
+        }
+
+        const key = trimmedLine.slice(0, separatorIndex).trim();
+        if (!key || process.env[key] !== undefined) {
+            continue;
+        }
+
+        let value = trimmedLine.slice(separatorIndex + 1).trim();
+        if (
+            (value.startsWith('"') && value.endsWith('"')) ||
+            (value.startsWith("'") && value.endsWith("'"))
+        ) {
+            value = value.slice(1, -1);
+        }
+
+        process.env[key] = value;
+    }
+};
+
+loadEnvFile();
 
 export interface AppConfig {
     adminPassword: string;

@@ -45,7 +45,7 @@
         </h1>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 w-full">
-            @for (p of session.allProfiles(); track p.id) {
+            @for (p of session.allProfiles(); track p.slug) {
             <button (click)="session.selectProfile(p)"
                 class="p-8 rounded-3xl text-center group relative overflow-hidden hover:scale-105 transition-all duration-300 border border-white/10 hover:border-brand-primary/50 bg-white/5 hover:bg-white/10 shadow-2xl">
                 <div
@@ -56,9 +56,9 @@
                     {{ p.name }}</h2>
                 <div
                     class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-black/30 border border-white/5 text-gray-400 text-xs font-bold uppercase tracking-wider relative z-10">
-                    <span class="w-2 h-2 rounded-full" [class.bg-brand-primary]="p.videoIds.length > 0"
-                        [class.bg-red-500]="p.videoIds.length === 0"></span>
-                    {{ p.videoIds.length }} CONTENT
+                    <span class="w-2 h-2 rounded-full" [class.bg-brand-primary]="p.videoCount > 0"
+                        [class.bg-red-500]="p.videoCount === 0"></span>
+                    {{ p.videoCount }} CONTENT
                 </div>
             </button>
             }

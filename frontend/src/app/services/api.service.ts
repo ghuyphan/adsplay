@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpEvent } from '@angular/common/http';
+import { HttpClient, HttpContext, HttpEvent } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { PUBLIC_API_REQUEST } from './auth.interceptor';
 
 export interface Video {
     createdAt: string;
@@ -26,12 +27,25 @@ export interface Video {
 export interface Profile {
     createdAt: string;
     id: string;
-    slug?: string;
     name: string;
+    playerAccessToken: string;
+    slug: string;
     updatedAt: string;
     videoIds: string[];
     videos?: Video[]; // enriched
     lastSeen?: string;
+}
+
+export interface PlayerProfileSummary {
+    name: string;
+    slug: string;
+    videoCount: number;
+}
+
+export interface PlayerProfile {
+    name: string;
+    slug: string;
+    videos: Video[];
 }
 
 export interface VideoPolicy {
@@ -63,6 +77,10 @@ export class ApiService {
     private apiUrl = '/api';
 
     constructor(private http: HttpClient) { }
+
+    private createPublicRequestContext() {
+        return new HttpContext().set(PUBLIC_API_REQUEST, true);
+    }
 
     getVideos(noCache?: boolean): Observable<Video[]> {
         const url = noCache ? `${this.apiUrl}/videos?_t=${Date.now()}` : `${this.apiUrl}/videos`;
@@ -126,12 +144,21 @@ export class ApiService {
         return this.http.get<Profile[]>(url);
     }
 
+    getPlayerProfiles(noCache?: boolean): Observable<PlayerProfileSummary[]> {
+        const url = noCache ? `${this.apiUrl}/profiles?_t=${Date.now()}` : `${this.apiUrl}/profiles`;
+        return this.http.get<PlayerProfileSummary[]>(url, {
+            context: this.createPublicRequestContext(),
+        });
+    }
+
     getProfile(id: string): Observable<Profile> {
         return this.http.get<Profile>(`${this.apiUrl}/profiles/${id}`);
     }
 
-    getProfileBySlug(slug: string): Observable<Profile> {
-        return this.http.get<Profile>(`${this.apiUrl}/profiles/slug/${slug}`);
+    getProfileBySlug(slug: string): Observable<PlayerProfile> {
+        return this.http.get<PlayerProfile>(`${this.apiUrl}/profiles/slug/${slug}`, {
+            context: this.createPublicRequestContext(),
+        });
     }
 
     createProfile(name: string, videoIds: string[]): Observable<any> {
@@ -150,8 +177,13 @@ export class ApiService {
         return this.http.get<{ online: boolean; uptime: number; localIps: string[] }>(`${this.apiUrl}/system/status`);
     }
 
-    sendHeartbeat(profileId: string): Observable<any> {
-        return this.http.post(`${this.apiUrl}/profiles/${profileId}/heartbeat`, {});
+    sendHeartbeat(profileSlug: string, playerAccessToken: string): Observable<any> {
+        return this.http.post(`${this.apiUrl}/profiles/slug/${profileSlug}/heartbeat`, {}, {
+            context: this.createPublicRequestContext(),
+            headers: {
+                'X-Profile-Token': playerAccessToken,
+            },
+        });
     }
 
     getVideoStreamUrl(video: Pick<Video, 'id' | 'updatedAt'>): string {

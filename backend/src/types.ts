@@ -49,6 +49,27 @@ export interface DetailedProfile extends Profile {
     videos: Video[];
 }
 
+export interface AdminProfile extends Profile {
+    playerAccessToken: string;
+    slug: string;
+}
+
+export interface AdminDetailedProfile extends DetailedProfile {
+    playerAccessToken: string;
+}
+
+export interface PlayerProfileSummary {
+    name: string;
+    slug: string;
+    videoCount: number;
+}
+
+export interface PlayerProfile {
+    name: string;
+    slug: string;
+    videos: Video[];
+}
+
 export interface UploadSessionManifest {
     chunkSizeBytes: number;
     createdAt: string;

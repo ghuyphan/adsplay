@@ -172,7 +172,8 @@
 
             <div *ngIf="activeTab === 'profiles'" class="h-full pb-20">
                 <app-profile-manager [profiles]="store.profiles()" [videos]="store.videos()"
-                    [activePlayerCount]="store.activePlayerCount()" (saveProfile)="onSaveProfile($event)"
+                    [activePlayerCount]="store.activePlayerCount()" [localIps]="store.systemInfo()?.localIps || []"
+                    (saveProfile)="onSaveProfile($event)"
                     (deleteProfileConfirmed)="onDeleteProfile($event)">
                 </app-profile-manager>
             </div>

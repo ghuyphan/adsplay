@@ -16,6 +16,7 @@ export class ProfileManager {
   @Input() profiles: Profile[] = [];
   @Input() videos: Video[] = [];
   @Input() activePlayerCount = 0;
+  @Input() localIps: string[] = [];
 
   @Output() saveProfile = new EventEmitter<SaveProfilePayload>();
   @Output() deleteProfileConfirmed = new EventEmitter<string>();
@@ -169,7 +170,35 @@ export class ProfileManager {
   }
 
   getPlayerUrl(name: string) {
-    return `${window.location.origin}/player/${slugify(name)}`;
+    return this.buildPlayerUrl('player', slugify(name));
+  }
+
+  getProfilePlayerUrl(profile: Profile) {
+    return this.buildPlayerUrl('player', profile.slug, profile.playerAccessToken);
+  }
+
+  getLegacyPlayerUrl(profile: Profile) {
+    return this.buildPlayerUrl('player-legacy', profile.slug, profile.playerAccessToken);
+  }
+
+  private buildPlayerUrl(pathPrefix: 'player' | 'player-legacy', slug: string, playerAccessToken?: string) {
+    if (typeof window === 'undefined') {
+      const tokenQuery = playerAccessToken ? `?token=${encodeURIComponent(playerAccessToken)}` : '';
+      return `/${pathPrefix}/${slug}${tokenQuery}`;
+    }
+
+    const url = new URL(window.location.origin);
+    url.pathname = `/${pathPrefix}/${slug}`;
+
+    if (this.localIps[0]) {
+      url.hostname = this.localIps[0];
+    }
+
+    if (playerAccessToken) {
+      url.searchParams.set('token', playerAccessToken);
+    }
+
+    return url.toString();
   }
 
   getPlaylistDurationLabel() {

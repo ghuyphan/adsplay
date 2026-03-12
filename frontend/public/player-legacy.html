@@ -1,0 +1,560 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <meta
+      http-equiv="Cache-Control"
+      content="no-store, no-cache, must-revalidate, max-age=0"
+    />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <title>AdPlay Legacy Player</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background: #000;
+        color: #fff;
+        font-family: Arial, sans-serif;
+      }
+
+      body {
+        overflow: hidden;
+      }
+
+      #app {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        background: #000;
+      }
+
+      #video {
+        width: 100%;
+        height: 100%;
+        background: #000;
+      }
+
+      #overlay {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        right: 12px;
+        z-index: 20;
+        pointer-events: none;
+      }
+
+      #title {
+        display: inline-block;
+        margin: 0 0 8px 0;
+        padding: 8px 12px;
+        background: rgba(0, 0, 0, 0.72);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        font-size: 20px;
+        font-weight: bold;
+      }
+
+      #status,
+      #detail,
+      #warning {
+        display: inline-block;
+        clear: both;
+        margin: 0 0 8px 0;
+        padding: 8px 12px;
+        background: rgba(0, 0, 0, 0.72);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        font-size: 14px;
+      }
+
+      #warning {
+        color: #ffd166;
+      }
+
+      #empty {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 80%;
+        max-width: 720px;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        z-index: 15;
+        padding: 24px;
+        background: rgba(0, 0, 0, 0.88);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+      }
+
+      #empty h1 {
+        margin: 0 0 12px 0;
+        font-size: 28px;
+      }
+
+      #empty p {
+        margin: 0;
+        font-size: 18px;
+        line-height: 1.5;
+      }
+
+      .hidden {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <video id="video" autoplay playsinline webkit-playsinline></video>
+
+      <div id="overlay">
+        <div id="title">AdPlay Legacy Player</div>
+        <div id="status">Dang khoi dong...</div>
+        <div id="detail" class="hidden"></div>
+        <div id="warning" class="hidden"></div>
+      </div>
+
+      <div id="empty" class="hidden">
+        <h1 id="empty-title">AdPlay Legacy Player</h1>
+        <p id="empty-message">Dang tai noi dung...</p>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        var video = document.getElementById('video');
+        var title = document.getElementById('title');
+        var status = document.getElementById('status');
+        var detail = document.getElementById('detail');
+        var warning = document.getElementById('warning');
+        var empty = document.getElementById('empty');
+        var emptyTitle = document.getElementById('empty-title');
+        var emptyMessage = document.getElementById('empty-message');
+
+        var state = {
+          currentIndex: 0,
+          currentProfile: null,
+          currentVideoKey: '',
+          heartbeatTimer: null,
+          profileSlug: '',
+          profileSyncTimer: null,
+          token: '',
+        };
+
+        function showElement(element, shouldShow) {
+          if (!element) {
+            return;
+          }
+
+          if (shouldShow) {
+            element.className = element.className.replace(/\bhidden\b/g, '').replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
+            return;
+          }
+
+          if (element.className.indexOf('hidden') === -1) {
+            element.className = (element.className + ' hidden').replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
+          }
+        }
+
+        function setStatus(message) {
+          if (status) {
+            status.innerHTML = message;
+          }
+        }
+
+        function setDetail(message) {
+          if (detail) {
+            detail.innerHTML = message || '';
+            showElement(detail, !!message);
+          }
+        }
+
+        function setWarning(message) {
+          if (warning) {
+            warning.innerHTML = message || '';
+            showElement(warning, !!message);
+          }
+        }
+
+        function showEmpty(message, heading) {
+          showElement(empty, true);
+          if (emptyTitle) {
+            emptyTitle.innerHTML = heading || 'AdPlay Legacy Player';
+          }
+          if (emptyMessage) {
+            emptyMessage.innerHTML = message || '';
+          }
+        }
+
+        function hideEmpty() {
+          showElement(empty, false);
+        }
+
+        function parseQueryValue(name) {
+          var search = window.location.search || '';
+          var query = search.charAt(0) === '?' ? search.substring(1) : search;
+          var parts = query.split('&');
+          var index;
+          var pair;
+          var key;
+          var value;
+
+          for (index = 0; index < parts.length; index += 1) {
+            pair = parts[index].split('=');
+            key = decodeValue(pair[0]);
+            if (key === name) {
+              value = pair.length > 1 ? pair.slice(1).join('=') : '';
+              return decodeValue(value);
+            }
+          }
+
+          return '';
+        }
+
+        function decodeValue(value) {
+          try {
+            return decodeURIComponent(String(value || '').replace(/\+/g, ' '));
+          } catch (error) {
+            return String(value || '');
+          }
+        }
+
+        function getProfileSlug() {
+          var pathname = window.location.pathname || '';
+          var marker = '/player-legacy/';
+          var markerIndex = pathname.indexOf(marker);
+          var slug = '';
+          var slashIndex;
+
+          if (markerIndex !== -1) {
+            slug = pathname.substring(markerIndex + marker.length);
+            slashIndex = slug.indexOf('/');
+            if (slashIndex !== -1) {
+              slug = slug.substring(0, slashIndex);
+            }
+            slug = decodeValue(slug);
+          }
+
+          if (!slug) {
+            slug = parseQueryValue('profile');
+          }
+
+          return slug;
+        }
+
+        function buildProfileUrl(slug) {
+          return '/api/profiles/slug/' + encodeURIComponent(slug) + '?_t=' + new Date().getTime();
+        }
+
+        function buildHeartbeatUrl(slug) {
+          return '/api/profiles/slug/' + encodeURIComponent(slug) + '/heartbeat';
+        }
+
+        function buildVideoUrl(videoItem) {
+          return '/api/videos/' + encodeURIComponent(videoItem.id) + '/stream?v=' + encodeURIComponent(videoItem.updatedAt || '');
+        }
+
+        function request(method, url, headers, body, callback) {
+          var xhr = new XMLHttpRequest();
+          xhr.open(method, url, true);
+          xhr.onreadystatechange = function () {
+            if (xhr.readyState !== 4) {
+              return;
+            }
+
+            callback(xhr.status, xhr.responseText);
+          };
+
+          xhr.onerror = function () {
+            callback(0, '');
+          };
+
+          if (headers) {
+            var headerName;
+            for (headerName in headers) {
+              if (headers.hasOwnProperty(headerName)) {
+                xhr.setRequestHeader(headerName, headers[headerName]);
+              }
+            }
+          }
+
+          xhr.send(body || null);
+        }
+
+        function parseJson(text) {
+          try {
+            return JSON.parse(text);
+          } catch (error) {
+            return null;
+          }
+        }
+
+        function getVideoAt(index) {
+          if (!state.currentProfile || !state.currentProfile.videos || !state.currentProfile.videos.length) {
+            return null;
+          }
+
+          if (index < 0 || index >= state.currentProfile.videos.length) {
+            return null;
+          }
+
+          return state.currentProfile.videos[index];
+        }
+
+        function findVideoIndexById(videoId, videos) {
+          var index;
+          if (!videoId || !videos) {
+            return -1;
+          }
+
+          for (index = 0; index < videos.length; index += 1) {
+            if (videos[index] && videos[index].id === videoId) {
+              return index;
+            }
+          }
+
+          return -1;
+        }
+
+        function safePlay() {
+          if (!video) {
+            return;
+          }
+
+          try {
+            var playResult = video.play();
+            if (playResult && typeof playResult.then === 'function') {
+              playResult.catch(function () {
+                video.muted = true;
+                setWarning('TV nay yeu cau tu dong tat tieng de bat dau phat.');
+                try {
+                  video.play();
+                } catch (error) {
+                  setWarning('Khong the tu dong phat video tren trinh duyet nay.');
+                }
+              });
+            }
+          } catch (error) {
+            setWarning('Khong the tu dong phat video tren trinh duyet nay.');
+          }
+        }
+
+        function updateHeader() {
+          var currentVideo = getVideoAt(state.currentIndex);
+          var profileName = state.currentProfile && state.currentProfile.name ? state.currentProfile.name : 'AdPlay Legacy Player';
+          var line = profileName;
+
+          if (currentVideo) {
+            line = line + ' | ' + currentVideo.originalName;
+          }
+
+          if (title) {
+            title.innerHTML = line;
+          }
+
+          document.title = line;
+        }
+
+        function playCurrentVideo(forceReload) {
+          var currentVideo = getVideoAt(state.currentIndex);
+          var nextKey;
+          var src;
+
+          if (!currentVideo) {
+            if (video) {
+              video.removeAttribute('src');
+              video.load();
+            }
+            showEmpty('Man hinh nay chua co video de phat.', state.currentProfile ? state.currentProfile.name : 'Khong co noi dung');
+            setStatus('Khong co video trong playlist.');
+            setDetail('');
+            updateHeader();
+            return;
+          }
+
+          hideEmpty();
+          nextKey = String(currentVideo.id) + ':' + String(currentVideo.updatedAt || '');
+          if (!forceReload && state.currentVideoKey === nextKey) {
+            updateHeader();
+            return;
+          }
+
+          state.currentVideoKey = nextKey;
+          src = buildVideoUrl(currentVideo);
+
+          if (video) {
+            video.src = src;
+            video.load();
+            safePlay();
+          }
+
+          setStatus(currentVideo.processingStatus === 'ready' ? 'Dang phat noi dung.' : 'Dang phat truc tiep tu may chu.');
+          setDetail(
+            'Video ' +
+              (state.currentIndex + 1) +
+              '/' +
+              state.currentProfile.videos.length +
+              ': ' +
+              currentVideo.originalName
+          );
+          updateHeader();
+        }
+
+        function nextVideo(reason) {
+          if (!state.currentProfile || !state.currentProfile.videos || !state.currentProfile.videos.length) {
+            return;
+          }
+
+          if (reason) {
+            setStatus(reason);
+          }
+
+          state.currentIndex += 1;
+          if (state.currentIndex >= state.currentProfile.videos.length) {
+            state.currentIndex = 0;
+          }
+
+          playCurrentVideo(true);
+        }
+
+        function applyProfile(profileData) {
+          var currentVideo = getVideoAt(state.currentIndex);
+          var currentVideoId = currentVideo ? currentVideo.id : '';
+          var matchingIndex = findVideoIndexById(currentVideoId, profileData.videos);
+
+          state.currentProfile = profileData;
+
+          if (!profileData.videos || !profileData.videos.length) {
+            state.currentIndex = 0;
+            state.currentVideoKey = '';
+            playCurrentVideo(true);
+            return;
+          }
+
+          if (matchingIndex >= 0) {
+            state.currentIndex = matchingIndex;
+          } else if (state.currentIndex >= profileData.videos.length || state.currentIndex < 0) {
+            state.currentIndex = 0;
+          }
+
+          playCurrentVideo(false);
+        }
+
+        function loadProfile(isInitialLoad) {
+          if (!state.profileSlug) {
+            showEmpty('Dung link "TV cu" trong trang quan tri de mo player nay.', 'Can link cu the');
+            setStatus('Khong tim thay slug man hinh.');
+            setDetail('Hay mo lai link tu dashboard.');
+            return;
+          }
+
+          if (isInitialLoad) {
+            showEmpty('Dang tai playlist cho man hinh ' + state.profileSlug + '...', 'Dang tai');
+            setStatus('Dang tai playlist...');
+          } else {
+            setStatus('Dang dong bo playlist...');
+          }
+
+          request('GET', buildProfileUrl(state.profileSlug), null, null, function (statusCode, responseText) {
+            var payload;
+
+            if (statusCode !== 200) {
+              showEmpty('Khong tai duoc playlist tu may chu.', 'Khong the ket noi');
+              setStatus('Loi tai playlist.');
+              setDetail('Ma trang thai: ' + statusCode);
+              return;
+            }
+
+            payload = parseJson(responseText);
+            if (!payload || !payload.videos || typeof payload.videos.length !== 'number') {
+              showEmpty('Du lieu playlist tra ve khong hop le.', 'Du lieu loi');
+              setStatus('Playlist khong hop le.');
+              setDetail('');
+              return;
+            }
+
+            hideEmpty();
+            setWarning(state.token ? '' : 'Link nay khong co token heartbeat. TV van phat duoc, nhung dashboard se khong bao online.');
+            applyProfile(payload);
+          });
+        }
+
+        function sendHeartbeat() {
+          if (!state.profileSlug || !state.token) {
+            return;
+          }
+
+          request(
+            'POST',
+            buildHeartbeatUrl(state.profileSlug),
+            {
+              'X-Profile-Token': state.token,
+            },
+            '',
+            function (statusCode) {
+              if (statusCode >= 200 && statusCode < 300) {
+                return;
+              }
+
+              setWarning('TV van dang phat, nhung heartbeat tam thoi khong gui duoc.');
+            }
+          );
+        }
+
+        function startTimers() {
+          if (state.heartbeatTimer) {
+            window.clearInterval(state.heartbeatTimer);
+          }
+          if (state.profileSyncTimer) {
+            window.clearInterval(state.profileSyncTimer);
+          }
+
+          state.heartbeatTimer = window.setInterval(function () {
+            sendHeartbeat();
+          }, 30000);
+
+          state.profileSyncTimer = window.setInterval(function () {
+            loadProfile(false);
+          }, 60000);
+        }
+
+        function init() {
+          state.profileSlug = getProfileSlug();
+          state.token = parseQueryValue('token');
+
+          if (video) {
+            video.autoplay = true;
+            video.onended = function () {
+              nextVideo('Dang chuyen sang video tiep theo.');
+            };
+            video.onerror = function () {
+              if (!state.currentProfile || !state.currentProfile.videos || state.currentProfile.videos.length < 2) {
+                setStatus('Khong phat duoc video hien tai. Dang tai lai playlist...');
+                window.setTimeout(function () {
+                  loadProfile(false);
+                }, 5000);
+                return;
+              }
+
+              nextVideo('Video hien tai loi. Dang bo qua video tiep theo.');
+            };
+            video.onloadedmetadata = function () {
+              setStatus('Dang phat noi dung.');
+              safePlay();
+            };
+          }
+
+          startTimers();
+          loadProfile(true);
+          sendHeartbeat();
+        }
+
+        init();
+      })();
+    </script>
+  </body>
+</html>
