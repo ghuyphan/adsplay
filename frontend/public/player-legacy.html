@@ -84,6 +84,7 @@
 
     <script>
       (function () {
+        var app = document.getElementById('app');
         var video = document.getElementById('video');
         var empty = document.getElementById('empty');
         var emptyTitle = document.getElementById('empty-title');
@@ -93,6 +94,7 @@
           currentIndex: 0,
           currentProfile: null,
           currentVideoKey: '',
+          hasTriedAutoFullscreen: false,
           heartbeatTimer: null,
           profileSlug: '',
           profileSyncTimer: null,
@@ -337,12 +339,101 @@
           return -1;
         }
 
+        function isFullscreenActive() {
+          return !!(
+            document.fullscreenElement ||
+            document.webkitFullscreenElement ||
+            document.webkitCurrentFullScreenElement ||
+            document.mozFullScreenElement ||
+            document.msFullscreenElement ||
+            (video && video.webkitDisplayingFullscreen)
+          );
+        }
+
+        function callFullscreenMethod(target) {
+          var requestMethod;
+          var result;
+
+          if (!target) {
+            return false;
+          }
+
+          requestMethod =
+            target.requestFullscreen ||
+            target.webkitRequestFullscreen ||
+            target.webkitRequestFullScreen ||
+            target.mozRequestFullScreen ||
+            target.msRequestFullscreen;
+
+          if (typeof requestMethod === 'function') {
+            try {
+              result = requestMethod.call(target);
+              if (result && typeof result.catch === 'function') {
+                result.catch(function () {
+                  return undefined;
+                });
+              }
+              return true;
+            } catch (error) {
+              return false;
+            }
+          }
+
+          return false;
+        }
+
+        function tryEnterFullscreen(forceFromGesture) {
+          var target;
+
+          if (isFullscreenActive()) {
+            return;
+          }
+
+          if (!forceFromGesture && state.hasTriedAutoFullscreen) {
+            return;
+          }
+
+          if (!forceFromGesture) {
+            state.hasTriedAutoFullscreen = true;
+          }
+
+          target = app || video || document.documentElement;
+          if (callFullscreenMethod(target) || callFullscreenMethod(video) || callFullscreenMethod(document.documentElement)) {
+            return;
+          }
+
+          if (video && typeof video.webkitEnterFullscreen === 'function') {
+            try {
+              video.webkitEnterFullscreen();
+            } catch (error) {
+              return;
+            }
+          }
+        }
+
+        function bindFullscreenGesture(target, eventName) {
+          if (!target) {
+            return;
+          }
+
+          if (typeof target.addEventListener === 'function') {
+            target.addEventListener(
+              eventName,
+              function () {
+                tryEnterFullscreen(true);
+              },
+              false
+            );
+          }
+        }
+
         function safePlay() {
           if (!video) {
             return;
           }
 
           try {
+            tryEnterFullscreen(false);
             var playResult = video.play();
             if (playResult && typeof playResult.then === 'function') {
               playResult.catch(function () {
@@ -539,6 +630,8 @@
 
           if (video) {
             video.autoplay = true;
+            bindFullscreenGesture(video, 'click');
+            bindFullscreenGesture(video, 'touchend');
             video.onended = function () {
               nextVideo('Dang chuyen sang video tiep theo.');
             };
@@ -554,14 +647,20 @@
               nextVideo('Video hien tai loi. Dang bo qua video tiep theo.');
             };
             video.onloadedmetadata = function () {
+              tryEnterFullscreen(false);
               setStatus('Dang phat noi dung.');
               safePlay();
             };
           }
 
+          bindFullscreenGesture(document, 'click');
+          bindFullscreenGesture(document, 'keydown');
+          bindFullscreenGesture(document, 'touchend');
+
           startTimers();
           loadProfile(true);
           sendHeartbeat();
+          tryEnterFullscreen(false);
         }
 
         init();
