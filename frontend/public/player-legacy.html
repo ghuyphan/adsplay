@@ -467,7 +467,7 @@
 
           if (state.playbackRetryCount < 1) {
             state.playbackRetryCount += 1;
-            replayCurrentVideo();
+            replayCurrentVideo(true);
             return;
           }
 
@@ -521,8 +521,9 @@
           }, forceReset ? 180 : 0);
         }
 
-        function replayCurrentVideo() {
+        function replayCurrentVideo(forceReload) {
           var currentVideo = getVideoAt(state.currentIndex);
+          var shouldForceReload = forceReload === true;
 
           if (!video || !currentVideo) {
             return;
@@ -530,6 +531,19 @@
 
           clearEndedSafetyTimer();
           clearPlaybackStartTimer();
+
+          if (!shouldForceReload) {
+            try {
+              video.currentTime = 0;
+              startEndedSafetyTimer(video.duration);
+              safePlay();
+              startPlaybackStartTimer();
+              return;
+            } catch (error) {
+              shouldForceReload = true;
+            }
+          }
+
           loadVideoSource(buildVideoUrl(currentVideo), true);
         }
 
