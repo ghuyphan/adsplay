@@ -97,6 +97,8 @@
           endedSafetyTimer: null,
           hasTriedAutoFullscreen: false,
           heartbeatTimer: null,
+          playbackStartTimer: null,
+          playbackRetryCount: 0,
           profileSlug: '',
           profileSyncTimer: null,
           token: '',
@@ -435,6 +437,13 @@
           }
         }
 
+        function clearPlaybackStartTimer() {
+          if (state.playbackStartTimer) {
+            window.clearTimeout(state.playbackStartTimer);
+            state.playbackStartTimer = null;
+          }
+        }
+
         function startEndedSafetyTimer(durationSeconds) {
           clearEndedSafetyTimer();
 
@@ -447,14 +456,38 @@
           }, Math.max(2000, (durationSeconds + 2) * 1000));
         }
 
-        function replayCurrentVideo() {
-          var currentVideo = getVideoAt(state.currentIndex);
-          var src;
-
-          if (!video || !currentVideo) {
+        function handlePlaybackStartTimeout() {
+          if (!video) {
             return;
           }
 
+          if (!video.paused && video.currentTime > 0) {
+            return;
+          }
+
+          if (state.playbackRetryCount < 1) {
+            state.playbackRetryCount += 1;
+            replayCurrentVideo();
+            return;
+          }
+
+          state.playbackRetryCount = 0;
+          advancePlayback('Dang thu lai noi dung tiep theo.');
+        }
+
+        function startPlaybackStartTimer() {
+          clearPlaybackStartTimer();
+          state.playbackStartTimer = window.setTimeout(function () {
+            handlePlaybackStartTimeout();
+          }, 4000);
+        }
+
+        function loadVideoSource(src, forceReset) {
+          if (!video) {
+            return;
+          }
+
+          clearPlaybackStartTimer();
           clearEndedSafetyTimer();
 
           try {
@@ -463,30 +496,41 @@
             return;
           }
 
-          try {
-            video.currentTime = 0;
-            video.load();
-            safePlay();
-            return;
-          } catch (error) {
-            src = buildVideoUrl(currentVideo);
+          if (forceReset) {
             try {
               video.removeAttribute('src');
               video.load();
-            } catch (innerError) {
+            } catch (error) {
+              return;
+            }
+          }
+
+          window.setTimeout(function () {
+            if (!video) {
               return;
             }
 
-            window.setTimeout(function () {
-              if (!video) {
-                return;
-              }
-
+            try {
               video.src = src;
               video.load();
               safePlay();
-            }, 150);
+              startPlaybackStartTimer();
+            } catch (error) {
+              handlePlaybackStartTimeout();
+            }
+          }, forceReset ? 180 : 0);
+        }
+
+        function replayCurrentVideo() {
+          var currentVideo = getVideoAt(state.currentIndex);
+
+          if (!video || !currentVideo) {
+            return;
           }
+
+          clearEndedSafetyTimer();
+          clearPlaybackStartTimer();
+          loadVideoSource(buildVideoUrl(currentVideo), true);
         }
 
         function advancePlayback(reason) {
@@ -548,6 +592,7 @@
 
           if (!currentVideo) {
             clearEndedSafetyTimer();
+            clearPlaybackStartTimer();
             if (video) {
               video.removeAttribute('src');
               video.load();
@@ -567,12 +612,11 @@
           }
 
           state.currentVideoKey = nextKey;
+          state.playbackRetryCount = 0;
           src = buildVideoUrl(currentVideo);
 
           if (video) {
-            video.src = src;
-            video.load();
-            safePlay();
+            loadVideoSource(src, true);
           }
 
           setStatus(currentVideo.processingStatus === 'ready' ? 'Dang phat noi dung.' : 'Dang phat truc tiep tu may chu.');
@@ -593,6 +637,7 @@
           }
 
           clearEndedSafetyTimer();
+          clearPlaybackStartTimer();
 
           if (reason) {
             setStatus(reason);
@@ -718,6 +763,7 @@
             };
             video.onerror = function () {
               clearEndedSafetyTimer();
+              clearPlaybackStartTimer();
               if (!state.currentProfile || !state.currentProfile.videos || state.currentProfile.videos.length < 2) {
                 setStatus('Khong phat duoc video hien tai. Dang tai lai playlist...');
                 window.setTimeout(function () {
@@ -734,8 +780,18 @@
               setStatus('Dang phat noi dung.');
               safePlay();
             };
+            video.onloadeddata = function () {
+              safePlay();
+            };
             video.onplaying = function () {
+              clearPlaybackStartTimer();
+              state.playbackRetryCount = 0;
               startEndedSafetyTimer(video.duration);
+            };
+            video.ontimeupdate = function () {
+              if (video.currentTime > 0.2) {
+                clearPlaybackStartTimer();
+              }
             };
           }
 
