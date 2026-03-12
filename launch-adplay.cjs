@@ -28,8 +28,6 @@ const skipDirNames = new Set(['.angular', '.git', 'dist', 'node_modules', 'uploa
 const args = new Set(process.argv.slice(2));
 const shouldOpenBrowser = !args.has('--no-open');
 
-const getNpmExecutable = () => (process.platform === 'win32' ? 'npm.cmd' : 'npm');
-
 const logSection = (title) => {
     console.log('');
     console.log('=========================================================');
@@ -178,15 +176,76 @@ const needsBuild = (outputFilePath, inputs) => {
     return latestInputTime > outputTime;
 };
 
-const runCommand = (label, command, commandArgs, cwd) =>
+const describeSpawnError = (label, error) => {
+    const message = error && typeof error.message === 'string' ? error.message : String(error);
+
+    if (process.platform === 'win32') {
+        return `${label} could not start (${message}). Windows had trouble launching a child process.`;
+    }
+
+    return `${label} could not start (${message}).`;
+};
+
+const createSpawnOptions = (overrides = {}) => ({
+    stdio: 'inherit',
+    windowsHide: false,
+    ...overrides,
+});
+
+const spawnWithFriendlyErrors = (label, command, commandArgs, options) => {
+    try {
+        return spawn(command, commandArgs, createSpawnOptions(options));
+    } catch (error) {
+        throw new Error(describeSpawnError(label, error));
+    }
+};
+
+const findNpmCliPath = () => {
+    const execDir = path.dirname(process.execPath);
+    const candidates = [
+        path.join(execDir, 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+        path.resolve(execDir, '..', 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+        path.resolve(execDir, '..', 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+    ];
+
+    return candidates.find((candidatePath) => fs.existsSync(candidatePath)) || null;
+};
+
+const getNpmLaunchSpec = () => {
+    const npmCliPath = findNpmCliPath();
+    if (npmCliPath) {
+        return {
+            command: process.execPath,
+            commandArgs: [npmCliPath],
+            shell: false,
+        };
+    }
+
+    return {
+        command: 'npm',
+        commandArgs: [],
+        shell: process.platform === 'win32',
+    };
+};
+
+const runCommand = (label, command, commandArgs, cwd, spawnOptions = {}) =>
     new Promise((resolve, reject) => {
         console.log(`${label}...`);
-        const child = spawn(command, commandArgs, {
-            cwd,
-            stdio: 'inherit',
-        });
+        let child;
 
-        child.on('error', reject);
+        try {
+            child = spawnWithFriendlyErrors(label, command, commandArgs, {
+                cwd,
+                ...spawnOptions,
+            });
+        } catch (error) {
+            reject(error);
+            return;
+        }
+
+        child.on('error', (error) => {
+            reject(new Error(describeSpawnError(label, error)));
+        });
         child.on('exit', (code) => {
             if (code === 0) {
                 resolve();
@@ -197,12 +256,24 @@ const runCommand = (label, command, commandArgs, cwd) =>
         });
     });
 
+const runNpmCommand = (label, npmArgs, cwd) => {
+    const npmLaunchSpec = getNpmLaunchSpec();
+
+    return runCommand(
+        label,
+        npmLaunchSpec.command,
+        [...npmLaunchSpec.commandArgs, ...npmArgs],
+        cwd,
+        { shell: npmLaunchSpec.shell },
+    );
+};
+
 const ensureDependencies = async (directory, label) => {
     if (fs.existsSync(path.join(directory, 'node_modules'))) {
         return;
     }
 
-    await runCommand(`Installing ${label} dependencies`, getNpmExecutable(), ['install', '--no-fund', '--no-audit'], directory);
+    await runNpmCommand(`Installing ${label} dependencies`, ['install', '--no-fund', '--no-audit'], directory);
 };
 
 const getLocalIpv4Addresses = () => {
@@ -380,6 +451,7 @@ const main = async () => {
 
     if (
         needsBuild(frontendIndexFile, [
+            path.join(frontendDir, 'public'),
             path.join(frontendDir, 'src'),
             path.join(frontendDir, 'angular.json'),
             path.join(frontendDir, 'package.json'),
@@ -388,7 +460,7 @@ const main = async () => {
             path.join(frontendDir, 'tsconfig.json'),
         ])
     ) {
-        await runCommand('Building frontend', getNpmExecutable(), ['run', 'build'], frontendDir);
+        await runNpmCommand('Building frontend', ['run', 'build'], frontendDir);
     } else {
         console.log('Frontend build is up to date.');
     }
@@ -401,7 +473,7 @@ const main = async () => {
             path.join(backendDir, 'tsconfig.json'),
         ])
     ) {
-        await runCommand('Building backend', getNpmExecutable(), ['run', 'build'], backendDir);
+        await runNpmCommand('Building backend', ['run', 'build'], backendDir);
     } else {
         console.log('Backend build is up to date.');
     }
@@ -432,13 +504,12 @@ const main = async () => {
         );
     }
 
-    const serverProcess = spawn(process.execPath, [backendDistEntry], {
+    const serverProcess = spawnWithFriendlyErrors('Starting AdPlay', process.execPath, [backendDistEntry], {
         cwd: backendDir,
         env: {
             ...process.env,
             ...envState.values,
         },
-        stdio: 'inherit',
     });
 
     let openedBrowser = false;
@@ -457,6 +528,11 @@ const main = async () => {
 
     process.on('SIGINT', stopServer);
     process.on('SIGTERM', stopServer);
+
+    serverProcess.on('error', (error) => {
+        console.error(describeSpawnError('Starting AdPlay', error));
+        process.exit(1);
+    });
 
     serverProcess.on('exit', (code) => {
         process.exit(code ?? 0);
