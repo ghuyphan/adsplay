@@ -414,6 +414,54 @@
           }
         }
 
+        function requestAudiblePlaybackFromGesture() {
+          var playResult;
+
+          if (!video) {
+            return;
+          }
+
+          try {
+            video.muted = false;
+            playResult = video.play();
+            if (playResult && typeof playResult.catch === 'function') {
+              playResult.catch(function () {
+                return undefined;
+              });
+            }
+          } catch (error) {
+            return;
+          }
+        }
+
+        function handleInteractionGesture() {
+          tryEnterFullscreen(true);
+          requestAudiblePlaybackFromGesture();
+        }
+
+        function isActivationKey(event) {
+          var key = event && event.key;
+          var code = event && event.code;
+          var keyCode = event && (event.keyCode || event.which);
+
+          return (
+            key === 'Enter' ||
+            key === 'NumpadEnter' ||
+            key === ' ' ||
+            key === 'Spacebar' ||
+            key === 'MediaPlay' ||
+            key === 'MediaPlayPause' ||
+            key === 'Select' ||
+            key === 'Accept' ||
+            key === 'OK' ||
+            code === 'Enter' ||
+            code === 'NumpadEnter' ||
+            keyCode === 13 ||
+            keyCode === 23 ||
+            keyCode === 32
+          );
+        }
+
         function bindFullscreenGesture(target, eventName) {
           if (!target) {
             return;
@@ -422,8 +470,12 @@
           if (typeof target.addEventListener === 'function') {
             target.addEventListener(
               eventName,
-              function () {
-                tryEnterFullscreen(true);
+              function (event) {
+                if (eventName === 'keydown' && !isActivationKey(event)) {
+                  return;
+                }
+
+                handleInteractionGesture();
               },
               false
             );

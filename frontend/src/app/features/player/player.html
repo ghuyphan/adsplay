@@ -90,30 +90,20 @@
 	            class="relative z-10 max-w-full max-h-full w-full h-full object-contain shadow-2xl transition-all duration-700"
 	            [class.scale-95]="session.isVideoPortrait() && !session.isFullscreen()" playsinline webkit-playsinline
 	            x5-playsinline (ended)="session.onVideoEnded()" (error)="session.onVideoError()"
-            (loadedmetadata)="session.onMetadataLoaded($event)" (click)="session.toggleFullscreen()">
+            (loadedmetadata)="session.onMetadataLoaded($event)">
         </video>
     </div>
 
-    @if (session.profile() && !session.isFullscreen()) {
-    <div (click)="session.interact()"
-        class="absolute inset-0 z-[70] bg-black/60 flex flex-col items-center justify-center cursor-pointer animate-fade-in group/overlay">
-        <div
-            class="w-20 h-20 rounded-full bg-white/10 border border-white/30 flex items-center justify-center group-hover/overlay:scale-110 group-hover/overlay:bg-brand-primary group-hover/overlay:border-brand-primary transition-all duration-300 shadow-[0_0_30px_rgba(255,255,255,0.1)]">
-            <svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-            </svg>
-        </div>
-    </div>
-    }
-
     @if (session.showUnmuteOverlay()) {
     <div
-        class="absolute bottom-6 left-1/2 z-[80] -translate-x-1/2 rounded-full bg-black/70 p-3 text-white backdrop-blur-xl">
-        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        class="absolute bottom-6 left-1/2 z-[80] flex items-center gap-3 -translate-x-1/2 rounded-full border border-white/10 bg-black/70 px-4 py-3 text-white backdrop-blur-xl">
+        <svg class="h-6 w-6 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M11 5L6 9H3v6h3l5 4V5zm5.707 1.293a1 1 0 010 1.414A7 7 0 0119 12a7 7 0 01-2.293 5.293 1 1 0 11-1.414-1.414A5 5 0 0017 12a5 5 0 00-1.707-3.879 1 1 0 010-1.414z" />
         </svg>
+        <span class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-100">
+            Chạm, bấm hoặc nhấn OK để bật âm thanh / toàn màn hình
+        </span>
     </div>
     }
 

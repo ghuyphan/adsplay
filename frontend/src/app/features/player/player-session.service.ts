@@ -71,6 +71,20 @@ export class PlayerSessionService {
     this.resetActivityTimer();
   };
 
+  private readonly onUserGestureBound = (event: Event) => {
+    if (!this.profile()) {
+      return;
+    }
+
+    if (event instanceof KeyboardEvent && !this.isActivationKey(event)) {
+      return;
+    }
+
+    this.zone.run(() => {
+      this.handleInteractionGesture();
+    });
+  };
+
   private readonly onNetworkRestoreBound = () => {
     this.heartbeatFailures = 0;
     if (!this.heartbeatInterval) {
@@ -88,12 +102,15 @@ export class PlayerSessionService {
       document.addEventListener('fullscreenchange', this.onFullscreenChangeBound);
       document.addEventListener('mousemove', this.onMouseMoveBound);
       document.addEventListener('click', this.onMouseMoveBound);
+      document.addEventListener('click', this.onUserGestureBound);
+      document.addEventListener('touchend', this.onUserGestureBound);
+      document.addEventListener('keydown', this.onUserGestureBound);
       window.addEventListener('online', this.onNetworkRestoreBound);
       window.addEventListener('offline', this.onNetworkLostBound);
     });
 
     this.autoReloadInterval = window.setInterval(() => {
-      if (!document.fullscreenElement) {
+      if (!this.profile()) {
         window.location.reload();
       }
     }, 24 * 60 * 60 * 1000);
@@ -105,6 +122,9 @@ export class PlayerSessionService {
     document.removeEventListener('fullscreenchange', this.onFullscreenChangeBound);
     document.removeEventListener('mousemove', this.onMouseMoveBound);
     document.removeEventListener('click', this.onMouseMoveBound);
+    document.removeEventListener('click', this.onUserGestureBound);
+    document.removeEventListener('touchend', this.onUserGestureBound);
+    document.removeEventListener('keydown', this.onUserGestureBound);
     window.removeEventListener('online', this.onNetworkRestoreBound);
     window.removeEventListener('offline', this.onNetworkLostBound);
 
@@ -175,9 +195,7 @@ export class PlayerSessionService {
   }
 
   selectProfile(profile: PlayerProfileSummary) {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => undefined);
-    }
+    this.requestFullscreenIfNeeded();
     void this.router.navigate(['/player', profile.slug]);
   }
 
@@ -192,6 +210,7 @@ export class PlayerSessionService {
     const video = event.target as HTMLVideoElement;
     this.startEndedSafetyTimer(video.duration);
     this.isVideoPortrait.set(video.videoHeight > video.videoWidth);
+    this.requestFullscreenIfNeeded();
     this.playVideo();
   }
 
@@ -202,27 +221,6 @@ export class PlayerSessionService {
     }
 
     this.onVideoEnded();
-  }
-
-  interact() {
-    this.unmuteAndPlay();
-    if (!this.isFullscreen()) {
-      this.toggleFullscreen();
-    }
-  }
-
-  toggleFullscreen() {
-    const elem = this.containerElement;
-    if (!elem) {
-      return;
-    }
-
-    if (!document.fullscreenElement) {
-      elem.requestFullscreen?.();
-      return;
-    }
-
-    document.exitFullscreen?.();
   }
 
   backToSelection() {
@@ -552,6 +550,55 @@ export class PlayerSessionService {
     this.videoElement.muted = false;
     void this.videoElement.play();
     this.showUnmuteOverlay.set(false);
+  }
+
+  private handleInteractionGesture() {
+    this.unmuteAndPlay();
+    this.requestFullscreenIfNeeded();
+  }
+
+  private isActivationKey(event: KeyboardEvent) {
+    return (
+      event.key === 'Enter' ||
+      event.key === 'NumpadEnter' ||
+      event.key === ' ' ||
+      event.key === 'Spacebar' ||
+      event.key === 'MediaPlay' ||
+      event.key === 'MediaPlayPause' ||
+      event.key === 'Select' ||
+      event.key === 'Accept' ||
+      event.key === 'OK' ||
+      event.code === 'Enter' ||
+      event.code === 'NumpadEnter' ||
+      event.keyCode === 13 ||
+      event.keyCode === 23 ||
+      event.keyCode === 32
+    );
+  }
+
+  private requestFullscreenIfNeeded() {
+    if (document.fullscreenElement) {
+      return;
+    }
+
+    const target = this.containerElement;
+    if (target?.requestFullscreen) {
+      try {
+        target.requestFullscreen().catch(() => undefined);
+        return;
+      } catch {
+        // Fall back to video fullscreen on WebKit-based browsers.
+      }
+    }
+
+    const video = this.videoElement as (HTMLVideoElement & { webkitEnterFullscreen?: () => void }) | null;
+    if (video && typeof video.webkitEnterFullscreen === 'function') {
+      try {
+        video.webkitEnterFullscreen();
+      } catch {
+        return;
+      }
+    }
   }
 
   private shouldCacheVideo(video: Video) {
