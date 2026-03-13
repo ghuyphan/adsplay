@@ -17,9 +17,9 @@ export class VideoList {
   @Input() uploadStatusLabel = 'Sẵn sàng tải lên';
   @Output() upload = new EventEmitter<File>();
   @Output() delete = new EventEmitter<string>();
+  @Output() preview = new EventEmitter<Video>();
 
   uploadError: string | null = null;
-  previewingVideo: Video | null = null;
   query = '';
   sortBy: 'largest' | 'most-used' | 'name' | 'newest' = 'newest';
 
@@ -125,11 +125,7 @@ export class VideoList {
   }
 
   openPreview(video: Video) {
-    this.previewingVideo = video;
-  }
-
-  closePreview() {
-    this.previewingVideo = null;
+    this.preview.emit(video);
   }
 
   getMaxUploadSizeLabel() {

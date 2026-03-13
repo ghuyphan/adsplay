@@ -1,6 +1,7 @@
 import { Component, HostListener, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../services/auth.service';
+import { ApiService, Video } from '../../services/api.service';
 import { ThemeToggle } from '../../shared/ui/theme-toggle/theme-toggle';
 import { VideoList } from './components/video-list/video-list';
 import { ProfileManager } from './components/profile-manager/profile-manager';
@@ -17,6 +18,7 @@ import { DashboardStore, SaveProfilePayload } from './dashboard.store';
 export class Admin implements OnInit {
   readonly store = inject(DashboardStore);
   private readonly authService = inject(AuthService);
+  private readonly api = inject(ApiService);
   readonly playerUrl = computed(() => {
     if (typeof window === 'undefined') {
       return '';
@@ -34,6 +36,7 @@ export class Admin implements OnInit {
   activeTab: 'videos' | 'profiles' = 'videos';
   isMobileMenuOpen = signal(false);
   videoDeletingId = signal<string | null>(null);
+  previewingVideo = signal<Video | null>(null);
   copySuccess = signal(false);
 
   @HostListener('window:beforeunload', ['$event'])
@@ -58,6 +61,14 @@ export class Admin implements OnInit {
 
   requestDeleteVideo(id: string) {
     this.videoDeletingId.set(id);
+  }
+
+  openPreview(video: Video) {
+    this.previewingVideo.set(video);
+  }
+
+  closePreview() {
+    this.previewingVideo.set(null);
   }
 
   confirmDeleteVideo() {
@@ -99,6 +110,50 @@ export class Admin implements OnInit {
   getDeleteVideoMessage() {
     const id = this.videoDeletingId();
     return id ? this.store.getVideoDeleteMessage(id) : 'Xóa nội dung?';
+  }
+
+  isImagePreview() {
+    return this.previewingVideo()?.mediaType === 'image';
+  }
+
+  getPreviewUrl() {
+    const video = this.previewingVideo();
+    return video ? this.api.getMediaStreamUrl(video) : '';
+  }
+
+  getPreviewTypeLabel() {
+    return this.isImagePreview() ? 'Ảnh' : 'Video';
+  }
+
+  getPreviewSizeLabel() {
+    const video = this.previewingVideo();
+    return video ? `${(video.size / 1024 / 1024).toFixed(2)} MB` : '';
+  }
+
+  getPreviewStatusLabel() {
+    const video = this.previewingVideo();
+    if (!video) {
+      return '';
+    }
+
+    if (video.mediaType === 'image') {
+      return 'Ảnh sẵn sàng';
+    }
+
+    if (video.processingStatus === 'processing') {
+      return 'Đang tối ưu';
+    }
+
+    if (video.processingStatus === 'pending') {
+      return 'Đang xếp hàng';
+    }
+
+    return video.streamVariant === 'optimized' ? 'Sẵn sàng HD' : 'Sẵn sàng bản gốc';
+  }
+
+  formatPreviewUploadedAt() {
+    const video = this.previewingVideo();
+    return video ? new Date(video.uploadedAt).toLocaleString() : '';
   }
 
   private fallbackCopyTextToClipboard(text: string) {
