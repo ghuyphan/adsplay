@@ -117,7 +117,7 @@ export class ProfileManager {
     }
 
     if (!this.playlistVideos.length) {
-      this.formError = 'Thêm ít nhất một video trước khi lưu.';
+      this.formError = 'Thêm ít nhất một nội dung trước khi lưu.';
       return;
     }
 

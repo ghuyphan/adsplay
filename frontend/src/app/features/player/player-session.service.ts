@@ -5,8 +5,9 @@ import { ApiService, PlayerProfile, PlayerProfileSummary, Video } from '../../se
 interface PlaybackSource {
   hlsUrl: string | null;
   loadToken: number;
-  mp4Url: string;
+  mediaType: Video['mediaType'];
   posterUrl: string;
+  sourceUrl: string;
 }
 
 const PLAYER_TOKEN_STORAGE_PREFIX = 'adsplay-player-token:';
@@ -15,6 +16,7 @@ const PLAYER_TOKEN_STORAGE_PREFIX = 'adsplay-player-token:';
 export class PlayerSessionService {
   private static readonly MAX_CACHEABLE_VIDEO_BYTES = 120 * 1024 * 1024;
   private static readonly MAX_PREFETCH_VIDEO_BYTES = 80 * 1024 * 1024;
+  private static readonly IMAGE_DISPLAY_DURATION_SECONDS = 10;
 
   private readonly api = inject(ApiService);
   private readonly router = inject(Router);
@@ -24,6 +26,8 @@ export class PlayerSessionService {
   readonly profile = signal<PlayerProfile | null>(null);
   readonly allProfiles = signal<PlayerProfileSummary[]>([]);
   readonly currentVideoIndex = signal(0);
+  readonly currentMediaType = signal<Video['mediaType'] | null>(null);
+  readonly currentImageUrl = signal('');
   readonly loading = signal(true);
   readonly showUnmuteOverlay = signal(false);
   readonly isCursorHidden = signal(false);
@@ -44,6 +48,7 @@ export class PlayerSessionService {
     on(event: string, handler: (...args: unknown[]) => void): void;
   } | null = null;
   private autoReloadInterval: number | null = null;
+  private imageAdvanceTimeout: number | null = null;
   private playlistSyncInterval: number | null = null;
   private endedSafetyTimeout: number | null = null;
   private heartbeatFailures = 0;
@@ -139,6 +144,7 @@ export class PlayerSessionService {
     if (this.endedSafetyTimeout) {
       window.clearTimeout(this.endedSafetyTimeout);
     }
+    this.clearImageAdvanceTimer();
 
     if (this.currentObjectUrl) {
       this.releaseCurrentObjectUrl();
@@ -182,8 +188,11 @@ export class PlayerSessionService {
 
     this.stopHeartbeat(true);
     this.stopPlaylistSync();
+    this.clearImageAdvanceTimer();
     this.profile.set(null);
     this.showUnmuteOverlay.set(false);
+    this.currentMediaType.set(null);
+    this.currentImageUrl.set('');
     this.currentVideoPosterUrl.set('');
     this.releaseCurrentObjectUrl();
     this.localVideoUrl.set('');
@@ -226,9 +235,12 @@ export class PlayerSessionService {
   backToSelection() {
     this.stopHeartbeat(true);
     this.stopPlaylistSync();
+    this.clearImageAdvanceTimer();
     this.playerAccessToken = null;
     this.profile.set(null);
     this.showUnmuteOverlay.set(false);
+    this.currentMediaType.set(null);
+    this.currentImageUrl.set('');
     this.currentVideoPosterUrl.set('');
     this.releaseCurrentObjectUrl();
     this.localVideoUrl.set('');
@@ -236,6 +248,10 @@ export class PlayerSessionService {
     this.activePlayback = null;
     this.destroyHls();
     void this.router.navigate(['/player']);
+  }
+
+  onImageLoaded() {
+    this.requestFullscreenIfNeeded();
   }
 
   private resetActivityTimer() {
@@ -291,6 +307,13 @@ export class PlayerSessionService {
     if (this.playlistSyncInterval) {
       window.clearInterval(this.playlistSyncInterval);
       this.playlistSyncInterval = null;
+    }
+  }
+
+  private clearImageAdvanceTimer() {
+    if (this.imageAdvanceTimeout) {
+      window.clearTimeout(this.imageAdvanceTimeout);
+      this.imageAdvanceTimeout = null;
     }
   }
 
@@ -364,6 +387,7 @@ export class PlayerSessionService {
   private loadProfileBySlug(profileSlug: string) {
     this.stopHeartbeat(true);
     this.stopPlaylistSync();
+    this.clearImageAdvanceTimer();
     this.loading.set(true);
     this.api.getProfileBySlug(profileSlug).subscribe({
       next: (profile) => {
@@ -376,8 +400,10 @@ export class PlayerSessionService {
 
         if (profile.videos.length) {
           void this.syncCacheWithBackend(profile.videos);
-          void this.loadAndPlayVideo(0);
+          void this.loadAndPlayMedia(0);
         } else {
+          this.currentMediaType.set(null);
+          this.currentImageUrl.set('');
           this.currentVideoPosterUrl.set('');
           this.pendingPlayback = null;
           this.activePlayback = null;
@@ -390,6 +416,7 @@ export class PlayerSessionService {
       error: () => {
         this.stopHeartbeat(true);
         this.stopPlaylistSync();
+        this.clearImageAdvanceTimer();
         this.loading.set(false);
         this.statusMessage.set('Không tìm thấy màn hình được yêu cầu.');
         this.profile.set(null);
@@ -398,28 +425,41 @@ export class PlayerSessionService {
     });
   }
 
-  private async loadAndPlayVideo(index: number) {
+  private async loadAndPlayMedia(index: number) {
     const activeProfile = this.profile();
     if (!activeProfile?.videos?.length) {
       return;
     }
 
     const video = activeProfile.videos[index];
-    const serverUrl = this.api.getVideoStreamUrl(video);
+    const serverUrl = this.api.getMediaStreamUrl(video);
     const posterUrl = video.posterFilename ? this.api.getVideoPosterUrl(video) : '';
     const hlsUrl =
-      video.processingStatus === 'ready' && video.hlsManifestPath
+      video.mediaType === 'video' && video.processingStatus === 'ready' && video.hlsManifestPath
         ? this.api.getVideoHlsManifestUrl(video)
         : null;
     const loadToken = ++this.activeLoadToken;
+
+    if (video.mediaType === 'image') {
+      this.releaseCurrentObjectUrl();
+      await this.applyPlayback({
+        hlsUrl: null,
+        loadToken,
+        mediaType: 'image',
+        posterUrl: '',
+        sourceUrl: serverUrl,
+      });
+      return;
+    }
 
     if (hlsUrl) {
       this.releaseCurrentObjectUrl();
       await this.applyPlayback({
         hlsUrl,
         loadToken,
-        mp4Url: serverUrl,
+        mediaType: 'video',
         posterUrl,
+        sourceUrl: serverUrl,
       });
       return;
     }
@@ -429,8 +469,9 @@ export class PlayerSessionService {
       await this.applyPlayback({
         hlsUrl: null,
         loadToken,
-        mp4Url: serverUrl,
+        mediaType: 'video',
         posterUrl,
+        sourceUrl: serverUrl,
       });
       void this.prefetchUpcomingVideo(index);
       return;
@@ -467,8 +508,9 @@ export class PlayerSessionService {
       await this.applyPlayback({
         hlsUrl: null,
         loadToken,
-        mp4Url: this.currentObjectUrl,
+        mediaType: 'video',
         posterUrl,
+        sourceUrl: this.currentObjectUrl,
       });
       void this.prefetchUpcomingVideo(index);
     } catch {
@@ -480,8 +522,9 @@ export class PlayerSessionService {
       await this.applyPlayback({
         hlsUrl: null,
         loadToken,
-        mp4Url: serverUrl,
+        mediaType: 'video',
         posterUrl,
+        sourceUrl: serverUrl,
       });
     }
   }
@@ -492,8 +535,8 @@ export class PlayerSessionService {
       const cachedRequests = await cache.keys();
       const validUrls = new Set(
         validVideos
-          .filter((video) => this.shouldCacheVideo(video))
-          .map((video) => new URL(this.api.getVideoStreamUrl(video), window.location.origin).toString()),
+          .filter((video) => video.mediaType === 'video' && this.shouldCacheVideo(video))
+          .map((video) => new URL(this.api.getMediaStreamUrl(video), window.location.origin).toString()),
       );
 
       for (const request of cachedRequests) {
@@ -553,7 +596,9 @@ export class PlayerSessionService {
   }
 
   private handleInteractionGesture() {
-    this.unmuteAndPlay();
+    if (this.currentMediaType() === 'video') {
+      this.unmuteAndPlay();
+    }
     this.requestFullscreenIfNeeded();
   }
 
@@ -603,6 +648,7 @@ export class PlayerSessionService {
 
   private shouldCacheVideo(video: Video) {
     return (
+      video.mediaType === 'video' &&
       video.processingStatus === 'ready' &&
       video.size > 0 &&
       video.size <= PlayerSessionService.MAX_CACHEABLE_VIDEO_BYTES
@@ -625,7 +671,7 @@ export class PlayerSessionService {
       return;
     }
 
-    const streamUrl = this.api.getVideoStreamUrl(nextVideo);
+    const streamUrl = this.api.getMediaStreamUrl(nextVideo);
     if (this.prefetchingUrls.has(streamUrl)) {
       return;
     }
@@ -746,12 +792,20 @@ export class PlayerSessionService {
 
     this.pendingPlayback = playback;
     this.activePlayback = playback;
+    this.currentMediaType.set(playback.mediaType);
     this.currentVideoPosterUrl.set(playback.posterUrl);
     this.statusMessage.set(null);
     this.hasTriedMp4Fallback = false;
+    this.clearImageAdvanceTimer();
+
+    if (playback.mediaType === 'image') {
+      this.applyImagePlayback(playback);
+      return;
+    }
 
     if (playback.hlsUrl) {
       if (!this.videoElement) {
+        this.currentImageUrl.set('');
         this.localVideoUrl.set('');
         this.activePlaybackMode = 'hls';
         return;
@@ -809,13 +863,43 @@ export class PlayerSessionService {
     this.applyMp4Playback(playback);
   }
 
+  private applyImagePlayback(playback: PlaybackSource) {
+    this.destroyHls();
+    this.activePlaybackMode = null;
+    this.showUnmuteOverlay.set(false);
+    this.currentVideoPosterUrl.set('');
+    this.currentImageUrl.set(playback.sourceUrl);
+    this.localVideoUrl.set('');
+    this.isVideoPortrait.set(false);
+
+    if (this.videoElement) {
+      this.videoElement.pause();
+      this.videoElement.removeAttribute('src');
+      this.videoElement.load();
+    }
+
+    this.requestFullscreenIfNeeded();
+
+    const activeProfile = this.profile();
+    const currentItem = activeProfile?.videos?.[this.currentVideoIndex()];
+    const durationSeconds = Math.max(
+      3,
+      Math.round(currentItem?.durationSeconds || PlayerSessionService.IMAGE_DISPLAY_DURATION_SECONDS),
+    );
+
+    this.imageAdvanceTimeout = window.setTimeout(() => {
+      this.next();
+    }, durationSeconds * 1000);
+  }
+
   private applyMp4Playback(playback: PlaybackSource) {
     this.destroyHls();
     this.activePlaybackMode = 'mp4';
-    this.localVideoUrl.set(playback.mp4Url);
+    this.currentImageUrl.set('');
+    this.localVideoUrl.set(playback.sourceUrl);
 
     if (this.videoElement) {
-      this.videoElement.src = playback.mp4Url;
+      this.videoElement.src = playback.sourceUrl;
       this.videoElement.load();
     }
   }
@@ -841,9 +925,12 @@ export class PlayerSessionService {
 
     if (this.isPlaylistUpdated) {
       this.isPlaylistUpdated = false;
+      this.clearImageAdvanceTimer();
       this.currentVideoIndex.set(0);
+      this.currentMediaType.set(null);
+      this.currentImageUrl.set('');
       this.currentVideoPosterUrl.set('');
-      void this.loadAndPlayVideo(0);
+      void this.loadAndPlayMedia(0);
       return;
     }
 
@@ -852,13 +939,19 @@ export class PlayerSessionService {
       nextIndex = 0;
     }
 
-    if (nextIndex === this.currentVideoIndex() && activeProfile.videos.length === 1 && this.videoElement) {
+    if (
+      nextIndex === this.currentVideoIndex() &&
+      activeProfile.videos.length === 1 &&
+      activeProfile.videos[0]?.mediaType === 'video' &&
+      this.videoElement
+    ) {
       this.videoElement.currentTime = 0;
       void this.playVideo();
       return;
     }
 
+    this.clearImageAdvanceTimer();
     this.currentVideoIndex.set(nextIndex);
-    void this.loadAndPlayVideo(nextIndex);
+    void this.loadAndPlayMedia(nextIndex);
   }
 }

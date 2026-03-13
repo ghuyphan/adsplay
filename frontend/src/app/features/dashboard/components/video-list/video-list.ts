@@ -19,10 +19,20 @@ export class VideoList {
   @Output() delete = new EventEmitter<string>();
 
   uploadError: string | null = null;
+  previewingVideo: Video | null = null;
   query = '';
   sortBy: 'largest' | 'most-used' | 'name' | 'newest' = 'newest';
 
-  private readonly ALLOWED_TYPES = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'];
+  private readonly ALLOWED_TYPES = [
+    'video/mp4',
+    'video/webm',
+    'video/ogg',
+    'video/quicktime',
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'image/gif',
+  ];
 
   get filteredVideos() {
     const query = this.query.trim().toLowerCase();
@@ -62,7 +72,7 @@ export class VideoList {
     }
 
     if (!this.ALLOWED_TYPES.includes(file.type)) {
-      this.uploadError = `Định dạng không hỗ trợ (${file.type || 'unknown'}). Chọn MP4, WebM, OGG hoặc MOV.`;
+      this.uploadError = `Định dạng không hỗ trợ (${file.type || 'unknown'}). Chọn MP4, WebM, OGG, MOV, JPG, PNG, GIF hoặc WebP.`;
       input.value = '';
       return;
     }
@@ -83,6 +93,10 @@ export class VideoList {
   }
 
   getProcessingLabel(video: Video) {
+    if (video.mediaType === 'image') {
+      return 'Ảnh sẵn sàng';
+    }
+
     if (video.processingStatus === 'processing') {
       return 'Đang tối ưu';
     }
@@ -100,6 +114,22 @@ export class VideoList {
 
   getPreviewUrl(video: Video) {
     return `/api/videos/${video.id}/stream?v=${encodeURIComponent(video.updatedAt)}`;
+  }
+
+  isImage(video: Video) {
+    return video.mediaType === 'image';
+  }
+
+  getMediaTypeLabel(video: Video) {
+    return this.isImage(video) ? 'Ảnh' : 'Video';
+  }
+
+  openPreview(video: Video) {
+    this.previewingVideo = video;
+  }
+
+  closePreview() {
+    this.previewingVideo = null;
   }
 
   getMaxUploadSizeLabel() {

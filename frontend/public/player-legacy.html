@@ -36,10 +36,12 @@
         background: #000;
       }
 
-      #video {
+      #video,
+      #image {
         width: 100%;
         height: 100%;
         background: #000;
+        object-fit: contain;
       }
 
       #empty {
@@ -75,6 +77,7 @@
   <body>
     <div id="app">
       <video id="video" autoplay playsinline webkit-playsinline></video>
+      <img id="image" class="hidden" alt="Ad image" />
 
       <div id="empty" class="hidden">
         <h1 id="empty-title">AdPlay Legacy Player</h1>
@@ -86,6 +89,7 @@
       (function () {
         var app = document.getElementById('app');
         var video = document.getElementById('video');
+        var image = document.getElementById('image');
         var empty = document.getElementById('empty');
         var emptyTitle = document.getElementById('empty-title');
         var emptyMessage = document.getElementById('empty-message');
@@ -93,10 +97,11 @@
         var state = {
           currentIndex: 0,
           currentProfile: null,
-          currentVideoKey: '',
+          currentMediaKey: '',
           endedSafetyTimer: null,
           hasTriedAutoFullscreen: false,
           heartbeatTimer: null,
+          imageAdvanceTimer: null,
           playbackStartTimer: null,
           playbackRetryCount: 0,
           profileSlug: '',
@@ -278,6 +283,14 @@
 
         function buildVideoUrl(videoItem) {
           return '/api/videos/' + encodeURIComponent(videoItem.id) + '/stream?v=' + encodeURIComponent(videoItem.updatedAt || '');
+        }
+
+        function buildMediaUrl(videoItem) {
+          return buildVideoUrl(videoItem);
+        }
+
+        function isImageItem(videoItem) {
+          return !!(videoItem && videoItem.mediaType === 'image');
         }
 
         function request(method, url, headers, body, callback) {
@@ -489,6 +502,13 @@
           }
         }
 
+        function clearImageAdvanceTimer() {
+          if (state.imageAdvanceTimer) {
+            window.clearTimeout(state.imageAdvanceTimer);
+            state.imageAdvanceTimer = null;
+          }
+        }
+
         function clearPlaybackStartTimer() {
           if (state.playbackStartTimer) {
             window.clearTimeout(state.playbackStartTimer);
@@ -504,7 +524,7 @@
           }
 
           state.endedSafetyTimer = window.setTimeout(function () {
-            advancePlayback('Dang chuyen sang video tiep theo.');
+            advancePlayback('Dang chuyen sang noi dung tiep theo.');
           }, Math.max(2000, (durationSeconds + 2) * 1000));
         }
 
@@ -541,6 +561,7 @@
 
           clearPlaybackStartTimer();
           clearEndedSafetyTimer();
+          clearImageAdvanceTimer();
 
           try {
             video.pause();
@@ -573,6 +594,36 @@
           }, forceReset ? 180 : 0);
         }
 
+        function showImageSource(src, durationSeconds) {
+          clearPlaybackStartTimer();
+          clearEndedSafetyTimer();
+          clearImageAdvanceTimer();
+
+          if (video) {
+            try {
+              video.pause();
+              video.removeAttribute('src');
+              video.load();
+            } catch (error) {
+              return;
+            }
+          }
+
+          showElement(video, false);
+          showElement(image, true);
+
+          if (image) {
+            image.onload = function () {
+              tryEnterFullscreen(false);
+            };
+            image.src = src;
+          }
+
+          state.imageAdvanceTimer = window.setTimeout(function () {
+            advancePlayback('Dang chuyen sang noi dung tiep theo.');
+          }, Math.max(3000, (durationSeconds && isFinite(durationSeconds) ? durationSeconds : 10) * 1000));
+        }
+
         function replayCurrentVideo(forceReload) {
           var currentVideo = getVideoAt(state.currentIndex);
           var shouldForceReload = forceReload === true;
@@ -583,6 +634,7 @@
 
           clearEndedSafetyTimer();
           clearPlaybackStartTimer();
+          clearImageAdvanceTimer();
 
           if (!shouldForceReload) {
             try {
@@ -608,7 +660,7 @@
             if (reason) {
               setStatus(reason);
             }
-            replayCurrentVideo();
+            playCurrentVideo(true);
             return;
           }
 
@@ -659,35 +711,46 @@
           if (!currentVideo) {
             clearEndedSafetyTimer();
             clearPlaybackStartTimer();
+            clearImageAdvanceTimer();
             if (video) {
               video.removeAttribute('src');
               video.load();
             }
-            showEmpty('Man hinh nay chua co video de phat.', state.currentProfile ? state.currentProfile.name : 'Khong co noi dung');
-            setStatus('Khong co video trong playlist.');
+            if (image) {
+              image.removeAttribute('src');
+            }
+            showElement(video, false);
+            showElement(image, false);
+            showEmpty('Man hinh nay chua co noi dung de phat.', state.currentProfile ? state.currentProfile.name : 'Khong co noi dung');
+            setStatus('Khong co noi dung trong playlist.');
             setDetail('');
             updateHeader();
             return;
           }
 
           hideEmpty();
+          showElement(video, !isImageItem(currentVideo));
+          showElement(image, isImageItem(currentVideo));
           nextKey = String(currentVideo.id) + ':' + String(currentVideo.updatedAt || '');
-          if (!forceReload && state.currentVideoKey === nextKey) {
+          if (!forceReload && state.currentMediaKey === nextKey) {
             updateHeader();
             return;
           }
 
-          state.currentVideoKey = nextKey;
+          state.currentMediaKey = nextKey;
           state.playbackRetryCount = 0;
-          src = buildVideoUrl(currentVideo);
+          src = buildMediaUrl(currentVideo);
 
-          if (video) {
+          if (isImageItem(currentVideo)) {
+            showImageSource(src, currentVideo.durationSeconds);
+            setStatus('Dang hien thi noi dung.');
+          } else if (video) {
             loadVideoSource(src, true);
+            setStatus(currentVideo.processingStatus === 'ready' ? 'Dang phat noi dung.' : 'Dang phat truc tiep tu may chu.');
           }
 
-          setStatus(currentVideo.processingStatus === 'ready' ? 'Dang phat noi dung.' : 'Dang phat truc tiep tu may chu.');
           setDetail(
-            'Video ' +
+            'Noi dung ' +
               (state.currentIndex + 1) +
               '/' +
               state.currentProfile.videos.length +
@@ -704,6 +767,7 @@
 
           clearEndedSafetyTimer();
           clearPlaybackStartTimer();
+          clearImageAdvanceTimer();
 
           if (reason) {
             setStatus(reason);
@@ -726,7 +790,7 @@
 
           if (!profileData.videos || !profileData.videos.length) {
             state.currentIndex = 0;
-            state.currentVideoKey = '';
+            state.currentMediaKey = '';
             playCurrentVideo(true);
             return;
           }
@@ -825,20 +889,21 @@
             bindFullscreenGesture(video, 'click');
             bindFullscreenGesture(video, 'touchend');
             video.onended = function () {
-              advancePlayback('Dang chuyen sang video tiep theo.');
+              advancePlayback('Dang chuyen sang noi dung tiep theo.');
             };
             video.onerror = function () {
               clearEndedSafetyTimer();
               clearPlaybackStartTimer();
+              clearImageAdvanceTimer();
               if (!state.currentProfile || !state.currentProfile.videos || state.currentProfile.videos.length < 2) {
-                setStatus('Khong phat duoc video hien tai. Dang tai lai playlist...');
+                setStatus('Khong phat duoc noi dung hien tai. Dang tai lai playlist...');
                 window.setTimeout(function () {
                   loadProfile(false);
                 }, 5000);
                 return;
               }
 
-              nextVideo('Video hien tai loi. Dang bo qua video tiep theo.');
+              nextVideo('Noi dung hien tai loi. Dang bo qua muc tiep theo.');
             };
             video.onloadedmetadata = function () {
               startEndedSafetyTimer(video.duration);
@@ -859,6 +924,11 @@
                 clearPlaybackStartTimer();
               }
             };
+          }
+
+          if (image) {
+            bindFullscreenGesture(image, 'click');
+            bindFullscreenGesture(image, 'touchend');
           }
 
           bindFullscreenGesture(document, 'click');

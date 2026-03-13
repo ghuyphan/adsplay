@@ -146,6 +146,7 @@ test('video upload and profile lifecycle work end-to-end', async () => {
   assert.equal(policyResponse.status, 200);
   assert.equal(policyResponse.body.maxUploadSizeBytes, 512 * 1024 * 1024);
   assert.equal(policyResponse.body.mediaProcessingEnabled, false);
+  assert.ok(policyResponse.body.allowedMimeTypes.includes('image/png'));
 
   const streamResponse = await request(app)
     .get(`/api/videos/${uploadResponse.body.id}/stream`)
@@ -236,6 +237,43 @@ test('resumable upload sessions resume per client key without cross-client colli
 
   assert.equal(secondClientSessionResponse.status, 200);
   assert.notEqual(secondClientSessionResponse.body.id, firstSessionResponse.body.id);
+});
+
+test('image uploads are returned as image media and can be used in profiles', async () => {
+  const { authHeader } = await loginAsAdmin();
+
+  const uploadResponse = await request(app)
+    .post('/api/videos')
+    .set(authHeader)
+    .attach('video', Buffer.from('fake png content'), {
+      contentType: 'image/png',
+      filename: 'poster.png',
+    });
+
+  assert.equal(uploadResponse.status, 200);
+  assert.equal(uploadResponse.body.originalName, 'poster.png');
+  assert.equal(uploadResponse.body.mediaType, 'image');
+  assert.equal(uploadResponse.body.processingStatus, 'ready');
+
+  const imageStreamResponse = await request(app).get(`/api/videos/${uploadResponse.body.id}/stream`);
+  assert.equal(imageStreamResponse.status, 200);
+  assert.equal(imageStreamResponse.headers['content-type'], 'image/png');
+
+  const createProfileResponse = await request(app)
+    .post('/api/profiles')
+    .set(authHeader)
+    .send({
+      name: 'Image Screen',
+      videoIds: [uploadResponse.body.id],
+    });
+
+  assert.equal(createProfileResponse.status, 200);
+  assert.equal(createProfileResponse.body.videos.length, 1);
+  assert.equal(createProfileResponse.body.videos[0].mediaType, 'image');
+
+  const publicProfile = await request(app).get('/api/profiles/slug/image-screen');
+  assert.equal(publicProfile.status, 200);
+  assert.equal(publicProfile.body.videos[0].mediaType, 'image');
 });
 
 test('resumable upload sessions reject undersized non-final chunks and still assemble valid uploads', async () => {

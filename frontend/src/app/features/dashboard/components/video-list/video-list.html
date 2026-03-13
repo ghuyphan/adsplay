@@ -2,7 +2,7 @@
   <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
     <div>
       <h3 class="text-lg font-bold uppercase tracking-wider text-slate-900 dark:text-white text-glow">
-        Danh Sách Video ({{ videos.length }})
+        Danh Sách Nội Dung ({{ videos.length }})
       </h3>
       <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
         Tìm nhanh theo tên file, sắp xếp theo ngày tải, dung lượng hoặc số playlist đang sử dụng.
@@ -10,7 +10,7 @@
     </div>
 
     <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_12rem] sm:items-center lg:w-[28rem]">
-      <input [(ngModel)]="query" type="search" placeholder="Tìm video..."
+      <input [(ngModel)]="query" type="search" placeholder="Tìm nội dung..."
         class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition-colors focus:border-brand-primary focus:outline-none dark:border-white/10 dark:bg-black/20 dark:text-white" />
       <select [(ngModel)]="sortBy"
         class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition-colors focus:border-brand-primary focus:outline-none dark:border-white/10 dark:bg-black/20 dark:text-white">
@@ -28,7 +28,7 @@
   </div>
 
   <input type="file" #fileInput class="hidden" (change)="onFileSelected($event)"
-    accept="video/mp4,video/webm,video/ogg,video/quicktime" [disabled]="isUploading">
+    accept="video/mp4,video/webm,video/ogg,video/quicktime,image/jpeg,image/png,image/webp,image/gif" [disabled]="isUploading">
 
   <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
     <button type="button" (click)="!isUploading && fileInput.click()" [disabled]="isUploading"
@@ -67,10 +67,10 @@
         <div>
           <div class="text-xs font-bold uppercase tracking-widest" [class.text-brand-primary]="isUploading"
             [class.text-slate-500]="!isUploading" [class.group-hover:text-brand-primary]="!isUploading">
-            {{ isUploading ? uploadStatusLabel : 'Tải Video Mới' }}
+            {{ isUploading ? uploadStatusLabel : 'Tải Nội Dung Mới' }}
           </div>
           <div class="mt-1 text-xs text-slate-400">
-            MP4, WebM, OGG, MOV. Tối đa {{ getMaxUploadSizeLabel() }}.
+            MP4, WebM, OGG, MOV, JPG, PNG, GIF, WebP. Tối đa {{ getMaxUploadSizeLabel() }}.
           </div>
         </div>
       </div>
@@ -78,13 +78,18 @@
 
     <article *ngFor="let video of filteredVideos"
       class="group relative aspect-video overflow-hidden rounded-2xl border border-slate-200 bg-black shadow-sm transition-all duration-500 hover:border-brand-primary/50 hover:shadow-xl dark:border-white/10">
-      <ng-container *ngIf="video.posterFilename; else previewVideo">
+      <ng-container *ngIf="isImage(video)">
+        <img [src]="getPreviewUrl(video)" [alt]="video.originalName"
+          class="h-full w-full object-cover opacity-90 transition-opacity duration-500 group-hover:opacity-100"
+          loading="lazy" />
+      </ng-container>
+      <ng-container *ngIf="!isImage(video) && video.posterFilename; else previewVideo">
         <img [src]="getPosterUrl(video)" [alt]="video.originalName"
           class="h-full w-full object-cover opacity-85 transition-opacity duration-500 group-hover:opacity-100"
           loading="lazy" />
       </ng-container>
       <ng-template #previewVideo>
-        <video [src]="getPreviewUrl(video)"
+        <video *ngIf="!isImage(video)" [src]="getPreviewUrl(video)"
           class="h-full w-full object-cover opacity-80 transition-opacity duration-500 group-hover:opacity-100" muted loop
           playsinline onmouseover="this.play()" onmouseout="this.pause(); this.currentTime = 0;">
         </video>
@@ -97,6 +102,7 @@
           {{ video.originalName }}
         </div>
         <div class="mt-2 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-wider text-slate-200">
+          <span class="rounded bg-brand-primary/30 px-2 py-1">{{ getMediaTypeLabel(video) }}</span>
           <span class="rounded bg-black/40 px-2 py-1">{{ (video.size / 1024 / 1024) | number:'1.1-2' }} MB</span>
           <span class="rounded bg-black/40 px-2 py-1">{{ video.usageCount || 0 }} playlist</span>
           <span class="rounded bg-black/40 px-2 py-1">{{ getProcessingLabel(video) }}</span>
@@ -109,14 +115,26 @@
               {{ video.processingError }}
             </span>
           </div>
-          <button (click)="$event.stopPropagation(); delete.emit(video.id)"
-            class="rounded-lg bg-white/10 p-2 text-white backdrop-blur-md transition-colors hover:bg-red-500/20 hover:text-red-400"
-            title="Xóa video">
-            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-          </button>
+          <div class="flex items-center gap-2">
+            <button (click)="$event.stopPropagation(); openPreview(video)"
+              class="rounded-lg bg-white/10 p-2 text-white backdrop-blur-md transition-colors hover:bg-brand-primary/20 hover:text-brand-primary"
+              title="Xem trước">
+              <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+            </button>
+            <button (click)="$event.stopPropagation(); delete.emit(video.id)"
+              class="rounded-lg bg-white/10 p-2 text-white backdrop-blur-md transition-colors hover:bg-red-500/20 hover:text-red-400"
+              title="Xóa nội dung">
+              <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
     </article>
@@ -124,6 +142,34 @@
 
   <div *ngIf="filteredVideos.length === 0 && videos.length > 0"
     class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-400">
-    Không tìm thấy video phù hợp với bộ lọc hiện tại.
+    Không tìm thấy nội dung phù hợp với bộ lọc hiện tại.
+  </div>
+
+  <div *ngIf="previewingVideo" class="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm"
+    (click)="closePreview()">
+    <div class="relative w-full max-w-5xl overflow-hidden rounded-3xl border border-white/10 bg-black shadow-2xl"
+      (click)="$event.stopPropagation()">
+      <div class="flex items-center justify-between border-b border-white/10 px-5 py-4 text-white">
+        <div class="min-w-0">
+          <div class="truncate text-sm font-bold">{{ previewingVideo.originalName }}</div>
+          <div class="mt-1 text-xs uppercase tracking-[0.2em] text-slate-400">
+            {{ getMediaTypeLabel(previewingVideo) }} preview
+          </div>
+        </div>
+        <button (click)="closePreview()" class="rounded-full bg-white/10 p-2 text-slate-200 transition-colors hover:bg-white/20"
+          title="Đóng xem trước">
+          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="flex max-h-[75vh] min-h-[18rem] items-center justify-center bg-black">
+        <img *ngIf="isImage(previewingVideo)" [src]="getPreviewUrl(previewingVideo)" [alt]="previewingVideo.originalName"
+          class="max-h-[75vh] w-full object-contain" />
+        <video *ngIf="!isImage(previewingVideo)" [src]="getPreviewUrl(previewingVideo)" class="max-h-[75vh] w-full bg-black object-contain"
+          controls autoplay playsinline></video>
+      </div>
+    </div>
   </div>
 </div>

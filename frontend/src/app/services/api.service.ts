@@ -10,6 +10,7 @@ export interface Video {
     filename: string;
     hlsManifestPath?: string;
     height?: number;
+    mediaType: 'video' | 'image';
     mimeType?: string;
     originalName: string;
     posterFilename?: string;
@@ -190,6 +191,10 @@ export class ApiService {
 
     getVideoStreamUrl(video: Pick<Video, 'id' | 'updatedAt'>): string {
         return `${this.apiUrl}/videos/${video.id}/stream?v=${encodeURIComponent(video.updatedAt)}`;
+    }
+
+    getMediaStreamUrl(video: Pick<Video, 'id' | 'updatedAt'>): string {
+        return this.getVideoStreamUrl(video);
     }
 
     getVideoPosterUrl(video: Pick<Video, 'id' | 'updatedAt'>): string {

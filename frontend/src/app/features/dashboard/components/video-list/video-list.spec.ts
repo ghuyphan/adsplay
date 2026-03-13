@@ -5,6 +5,7 @@ const video = (partial: Partial<Video>): Video => ({
   createdAt: '2026-03-10T00:00:00.000Z',
   filename: 'file.mp4',
   id: '1',
+  mediaType: 'video',
   originalName: 'Promo.mp4',
   processingStatus: 'ready',
   sourceFilename: 'file.mp4',

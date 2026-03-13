@@ -353,7 +353,7 @@ export const enqueueVideoOptimization = async (videoId: string) => {
     }
 
     const video = await dbRepository.findVideoById(videoId);
-    if (!video) {
+    if (!video || video.mediaType !== 'video') {
         return;
     }
 

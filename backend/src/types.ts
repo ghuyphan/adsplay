@@ -1,3 +1,4 @@
+export type MediaType = 'video' | 'image';
 export type VideoProcessingStatus = 'pending' | 'processing' | 'ready';
 export type VideoStreamVariant = 'optimized' | 'original';
 export type UploadSessionStatus = 'uploading' | 'assembling' | 'completed';
@@ -8,6 +9,7 @@ export interface Video {
     hlsManifestPath?: string;
     id: string;
     height?: number;
+    mediaType: MediaType;
     mimeType?: string;
     originalName: string;
     posterFilename?: string;

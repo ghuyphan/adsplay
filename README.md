@@ -15,7 +15,7 @@
 AdPlay lets you run digital signage on your local network without depending on a cloud service.
 
 You can:
-- upload videos
+- upload videos and images
 - group them into playlists called **Profiles**
 - open the player on TVs, tablets, or monitors
 - assign a different profile to each screen
@@ -91,9 +91,16 @@ Default local login:
 
 ### Add content
 
-1. Upload one or more videos
+1. Upload one or more videos or images
 2. Create a Profile
-3. Add videos into that Profile's playlist
+3. Add content into that Profile's playlist
+
+Supported upload formats:
+
+- Videos: `MP4`, `WebM`, `OGG`, `MOV`
+- Images: `JPG`, `PNG`, `GIF`, `WebP`
+
+The admin library can preview both videos and images directly, so you do not need to open the player just to verify an ad.
 
 ### Open the player on a TV or tablet
 
@@ -123,7 +130,9 @@ http://192.168.1.50:3000/player
 - Large uploads may continue in chunks if the network is unstable
 - Videos may be optimized in the background after upload
 - AdPlay also creates poster images for the admin library when processing succeeds
+- Image ads are ready immediately after upload and can be mixed into the same playlist as videos
 - The modern player prefers HLS playback automatically and falls back to direct MP4 streaming if needed
+- Mixed playlists rotate through both videos and still images automatically
 - After the first successful open, the player keeps its pairing token locally so the visible TV URL stays clean
 
 ---
@@ -155,6 +164,13 @@ http://192.168.1.50:3000/player
 - That is normal
 - AdPlay uploads first, then optimizes in the background
 - If optimization does not improve the file, AdPlay keeps the original video
+
+### My image uploaded but does not play like a video
+
+- That is expected
+- Images are displayed as still ads in the player
+- They can live in the same playlist as videos
+- Use the preview button in the admin library to confirm the image before publishing
 
 ---
 
@@ -231,7 +247,7 @@ npm run test:ci
 ### Top level
 
 - `frontend/` Angular admin UI and player UI
-- `backend/` Express API, upload handling, streaming, local JSON storage
+- `backend/` Express API, upload handling, media streaming, local JSON storage
 - `launch-adplay.cjs` one-click launcher used by the helper scripts
 - `start.command` double-click launcher for macOS
 - `start.sh` Terminal launcher for macOS/Linux
@@ -240,9 +256,9 @@ npm run test:ci
 ### Frontend
 
 - `frontend/src/app/features/dashboard/`
-  Admin dashboard for uploads, profiles, and system status
+  Admin dashboard for uploads, media previews, profiles, and system status
 - `frontend/src/app/features/player/`
-  Screen player experience used on TV/tablet devices
+  Screen player experience used on TV/tablet devices, including mixed image/video playlists
 - `frontend/src/app/features/auth/`
   Admin login flow
 - `frontend/src/app/services/`

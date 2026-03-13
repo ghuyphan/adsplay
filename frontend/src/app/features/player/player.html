@@ -85,16 +85,21 @@
     </div>
     } @else {
 	    <div class="w-full h-full bg-black relative group/player flex items-center justify-center overflow-hidden">
+	        @if (session.currentMediaType() === 'image') {
+          <img [src]="session.currentImageUrl()" class="relative z-10 max-w-full max-h-full w-full h-full object-contain shadow-2xl transition-all duration-700"
+            alt="Current ad image" (load)="session.onImageLoaded()">
+          } @else {
 	        <video #videoPlayer [src]="session.localVideoUrl()"
 	            [attr.poster]="session.currentVideoPosterUrl() || null"
 	            class="relative z-10 max-w-full max-h-full w-full h-full object-contain shadow-2xl transition-all duration-700"
 	            [class.scale-95]="session.isVideoPortrait() && !session.isFullscreen()" playsinline webkit-playsinline
 	            x5-playsinline (ended)="session.onVideoEnded()" (error)="session.onVideoError()"
             (loadedmetadata)="session.onMetadataLoaded($event)">
-        </video>
+          </video>
+          }
     </div>
 
-    @if (session.showUnmuteOverlay()) {
+    @if (session.currentMediaType() === 'video' && session.showUnmuteOverlay()) {
     <div
         class="absolute bottom-6 left-1/2 z-[80] flex items-center gap-3 -translate-x-1/2 rounded-full border border-white/10 bg-black/70 px-4 py-3 text-white backdrop-blur-xl">
         <svg class="h-6 w-6 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -31,7 +31,7 @@
               </h3>
               <div class="mt-3 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-wider">
                 <span class="rounded-full bg-slate-100 px-2 py-1 font-bold text-slate-600 dark:bg-white/10 dark:text-slate-300">
-                  {{ profile.videoIds.length }} video
+                  {{ profile.videoIds.length }} nội dung
                 </span>
                 <span class="rounded-full bg-slate-100 px-2 py-1 font-bold text-slate-500 dark:bg-white/10 dark:text-slate-400">
                   {{ profile.slug }}
@@ -168,7 +168,7 @@
             [class.dark:text-white]="mobileTab === 'library'"
             [class.text-slate-500]="mobileTab !== 'library'"
             [class.dark:text-slate-400]="mobileTab !== 'library'">
-            Kho Video ({{ videos.length }})
+            Kho Nội Dung ({{ videos.length }})
           </button>
           <button
             (click)="mobileTab = 'playlist'"
@@ -191,7 +191,7 @@
           class="flex h-full w-full flex-col border-b border-slate-200 bg-slate-50/50 md:w-2/5 md:border-b-0 md:border-r dark:border-white/5 dark:bg-black/20 md:flex">
           <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-white/5">
             <span class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-              Kho Video
+              Kho Nội Dung
             </span>
             <span class="rounded-md bg-slate-100 px-2 py-1 text-[10px] text-slate-400 dark:bg-white/10">
               Chọn để thêm vào playlist

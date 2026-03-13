@@ -7,6 +7,10 @@ import { AppError } from '../errors';
 import { enqueueVideoOptimization } from './media.service';
 
 const config = getConfig();
+const VIDEO_MIME_TYPES: string[] = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'];
+const IMAGE_MIME_TYPES: string[] = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
+const inferMediaType = (mimeType: string) => (mimeType.startsWith('image/') ? 'image' : 'video');
 
 const mapUsageCount = async () => {
     const [videos, profiles] = await Promise.all([dbRepository.listVideos(), dbRepository.listProfiles()]);
@@ -35,9 +39,11 @@ const createVideoRecord = async (input: {
     const video = await dbRepository.saveVideo({
         filename: input.filename,
         id: crypto.randomUUID(),
+        mediaType: inferMediaType(input.mimeType),
         mimeType: input.mimeType,
         originalName: input.originalName,
-        processingStatus: config.mediaProcessingEnabled ? 'pending' : 'ready',
+        processingStatus:
+            config.mediaProcessingEnabled && inferMediaType(input.mimeType) === 'video' ? 'pending' : 'ready',
         sourceFilename: input.filename,
         sourceMimeType: input.mimeType,
         sourceSize: input.size,
@@ -46,7 +52,10 @@ const createVideoRecord = async (input: {
         uploadedAt: new Date().toISOString(),
     });
 
-    void enqueueVideoOptimization(video.id);
+    if (video.mediaType === 'video') {
+        void enqueueVideoOptimization(video.id);
+    }
+
     return video;
 };
 
@@ -80,7 +89,7 @@ export const getVideoById = async (id: string) => {
 };
 
 export const getVideoPolicy = () => ({
-    allowedMimeTypes: ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'],
+    allowedMimeTypes: [...VIDEO_MIME_TYPES, ...IMAGE_MIME_TYPES],
     mediaProcessingEnabled: config.mediaProcessingEnabled,
     maxUploadSizeBytes: config.maxUploadSizeBytes,
     resumableChunkSizeBytes: config.resumableChunkSizeBytes,

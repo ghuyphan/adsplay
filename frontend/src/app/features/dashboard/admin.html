@@ -41,7 +41,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M4 6h16M4 10h16M4 14h16M4 18h16" />
                 </svg>
-                Kho Video
+                Kho Nội Dung
             </button>
 
             <button (click)="activeTab = 'profiles'; isMobileMenuOpen.set(false)"
@@ -85,10 +85,10 @@
 
                 <div>
                     <h1 class="text-xl font-bold text-slate-900 dark:text-white">
-                        {{ activeTab === 'videos' ? 'Kho Video' : 'Quản Lý Màn Hình' }}
+                        {{ activeTab === 'videos' ? 'Kho Nội Dung' : 'Quản Lý Màn Hình' }}
                     </h1>
                     <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                        {{ activeTab === 'videos' ? 'Quản lý và tải lên nội dung' : 'Cấu hình thiết bị phát' }}
+                        {{ activeTab === 'videos' ? 'Quản lý và tải lên video hoặc hình ảnh' : 'Cấu hình thiết bị phát' }}
                     </p>
                 </div>
             </div>
@@ -180,9 +180,9 @@
             }
         </div>
     </main>
-    <!-- Confirm Delete Video Modal -->
-    <app-confirm-modal [isOpen]="!!videoDeletingId()" title="Xóa Video?"
-        [message]="getDeleteVideoMessage()" confirmText="Xóa Video"
+    <!-- Confirm Delete Content Modal -->
+    <app-confirm-modal [isOpen]="!!videoDeletingId()" title="Xóa Nội Dung?"
+        [message]="getDeleteVideoMessage()" confirmText="Xóa Nội Dung"
         (confirm)="confirmDeleteVideo()" (cancel)="cancelDeleteVideo()">
     </app-confirm-modal>
 </div>

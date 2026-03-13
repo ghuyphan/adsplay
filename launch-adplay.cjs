@@ -304,9 +304,9 @@ const writeAccessFile = ({ adminPassword, adminUsername, localIps, port }) => {
         ...(
             localIps.length
                 ? localIps.map((ip, index) => {
-                      const label = index === 0 ? 'Player link for TVs/tablets' : 'Player link (alternate IP)';
-                      return `${label}: http://${ip}:${port}/player`;
-                  })
+                    const label = index === 0 ? 'Player link for TVs/tablets' : 'Player link (alternate IP)';
+                    return `${label}: http://${ip}:${port}/player`;
+                })
                 : [`Player link: http://localhost:${port}/player`]
         ),
         '',

@@ -14,6 +14,15 @@ const initialData: DatabaseSchema = {
 
 const createEntityId = () => crypto.randomUUID();
 
+const inferMediaType = (video: Partial<Video>): Video['mediaType'] => {
+    if (video.mediaType) {
+        return video.mediaType;
+    }
+
+    const mimeType = video.sourceMimeType || video.mimeType || '';
+    return mimeType.startsWith('image/') ? 'image' : 'video';
+};
+
 const normalizeVideo = (video: Partial<Video>): Video => {
     const timestamp = video.uploadedAt || video.createdAt || new Date().toISOString();
 
@@ -24,6 +33,7 @@ const normalizeVideo = (video: Partial<Video>): Video => {
         durationSeconds: video.durationSeconds,
         height: video.height,
         id: video.id || createEntityId(),
+        mediaType: inferMediaType(video),
         mimeType: video.mimeType,
         originalName: video.originalName || '',
         posterFilename: video.posterFilename,

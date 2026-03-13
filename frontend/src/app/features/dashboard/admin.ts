@@ -53,7 +53,7 @@ export class Admin implements OnInit {
   }
 
   onUpload(file: File) {
-    this.store.uploadVideo(file);
+    this.store.uploadMedia(file);
   }
 
   requestDeleteVideo(id: string) {
@@ -98,7 +98,7 @@ export class Admin implements OnInit {
 
   getDeleteVideoMessage() {
     const id = this.videoDeletingId();
-    return id ? this.store.getVideoDeleteMessage(id) : 'Xóa video?';
+    return id ? this.store.getVideoDeleteMessage(id) : 'Xóa nội dung?';
   }
 
   private fallbackCopyTextToClipboard(text: string) {

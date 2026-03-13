@@ -83,7 +83,7 @@ export class DashboardStore {
       });
   }
 
-  async uploadVideo(file: File) {
+  async uploadMedia(file: File) {
     this.isUploading.set(true);
     this.uploadProgress.set(0);
     this.uploadStatusLabel.set('Đang tạo phiên tải lên...');
@@ -98,10 +98,11 @@ export class DashboardStore {
         );
       });
 
-      this.toastService.show('Video đã được tải lên thành công.', 'success');
+      const successLabel = file.type.startsWith('image/') ? 'Ảnh' : 'Video';
+      this.toastService.show(`${successLabel} đã được tải lên thành công.`, 'success');
       this.refreshAll();
     } catch (error) {
-      this.toastService.show(getErrorMessage(error, 'Tải video thất bại.'), 'error');
+      this.toastService.show(getErrorMessage(error, 'Tải nội dung thất bại.'), 'error');
     } finally {
       this.isUploading.set(false);
       this.uploadProgress.set(0);
@@ -161,11 +162,11 @@ export class DashboardStore {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
-          this.toastService.show('Đã xóa video.', 'success');
+          this.toastService.show('Đã xóa nội dung.', 'success');
           this.refreshAll();
         },
         error: (error) => {
-          this.toastService.show(getErrorMessage(error, 'Không thể xóa video.'), 'error');
+          this.toastService.show(getErrorMessage(error, 'Không thể xóa nội dung.'), 'error');
           this.refreshAll();
         },
       });
@@ -174,11 +175,11 @@ export class DashboardStore {
   getVideoDeleteMessage(id: string) {
     const usedInProfiles = this.profiles().filter((profile) => profile.videoIds.includes(id));
     if (!usedInProfiles.length) {
-      return 'Hành động này không thể hoàn tác. Video sẽ bị xóa vĩnh viễn khỏi hệ thống.';
+      return 'Hành động này không thể hoàn tác. Nội dung sẽ bị xóa vĩnh viễn khỏi hệ thống.';
     }
 
     const profileNames = usedInProfiles.map((profile) => profile.name).join(', ');
-    return `Video này đang được dùng trong: ${profileNames}. Xóa video sẽ làm playlist của các màn hình đó mất nội dung ngay lập tức.`;
+    return `Nội dung này đang được dùng trong: ${profileNames}. Xóa nó sẽ làm playlist của các màn hình đó mất nội dung ngay lập tức.`;
   }
 
   isOnline(lastSeen?: string) {

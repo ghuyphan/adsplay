@@ -32,6 +32,7 @@ import { requireNonEmptyString } from '../utils/validation';
 const config = getConfig();
 const MAX_FILE_SIZE = config.maxUploadSizeBytes;
 const allowedMimeTypes = getVideoPolicy().allowedMimeTypes;
+const allowedMimeTypeMessage = 'Only MP4, WebM, OGG, MOV, JPG, PNG, GIF, and WebP files are allowed.';
 
 const contentTypeByExtension: Record<string, string> = {
     '.m3u8': 'application/vnd.apple.mpegurl',
@@ -53,7 +54,7 @@ const storage = multer.diskStorage({
 const upload = multer({
     fileFilter: (_req, file, cb) => {
         if (!allowedMimeTypes.includes(file.mimetype)) {
-            cb(new AppError(400, 'UPLOAD_INVALID_TYPE', 'Only MP4, WebM, OGG, and MOV videos are allowed.'));
+            cb(new AppError(400, 'UPLOAD_INVALID_TYPE', allowedMimeTypeMessage));
             return;
         }
 
@@ -113,7 +114,7 @@ videoRouter.post(
         }
 
         if (!allowedMimeTypes.includes(mimeType)) {
-            throw new AppError(400, 'UPLOAD_INVALID_TYPE', 'Only MP4, WebM, OGG, and MOV videos are allowed.');
+            throw new AppError(400, 'UPLOAD_INVALID_TYPE', allowedMimeTypeMessage);
         }
 
         const session = await createOrResumeUploadSession({
