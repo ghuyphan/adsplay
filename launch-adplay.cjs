@@ -478,11 +478,16 @@ const main = async () => {
         console.log('Backend build is up to date.');
     }
 
-    const adminUrl = `http://localhost:${port}/admin`;
+    const preferredHost = localIps[0] || 'localhost';
+    const adminUrl = `http://${preferredHost}:${port}/admin`;
+    const localAdminUrl = `http://localhost:${port}/admin`;
     const playerUrls = localIps.map((ip) => `http://${ip}:${port}/player`);
 
     logSection('Starting AdPlay');
     console.log(`Admin:  ${adminUrl}`);
+    if (adminUrl !== localAdminUrl) {
+        console.log(`Local:  ${localAdminUrl}`);
+    }
     if (playerUrls.length) {
         console.log(`Player: ${playerUrls[0]}`);
     }
