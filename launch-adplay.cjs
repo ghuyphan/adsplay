@@ -3,6 +3,7 @@
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const http = require('node:http');
+const https = require('node:https');
 const net = require('node:net');
 const os = require('node:os');
 const path = require('node:path');
@@ -13,10 +14,15 @@ const backendDir = path.join(rootDir, 'backend');
 const frontendDir = path.join(rootDir, 'frontend');
 const envFilePath = path.join(backendDir, '.env');
 const accessFilePath = path.join(rootDir, 'AdPlay Access.txt');
+const pidFilePath = path.join(rootDir, '.adplay-server.pid');
 const backendDistEntry = path.join(backendDir, 'dist', 'server.js');
 const frontendIndexFile = path.join(frontendDir, 'dist', 'frontend', 'browser', 'index.html');
+const httpsCertDir = path.join(backendDir, '.certs');
+const httpsKeyPath = path.join(httpsCertDir, 'adplay-local-key.pem');
+const httpsCertPath = path.join(httpsCertDir, 'adplay-local-cert.pem');
 const knownEnvKeys = [
     'PORT',
+    'AUTO_HTTPS',
     'HTTPS_ENABLED',
     'HTTPS_KEY_FILE',
     'HTTPS_CERT_FILE',
@@ -88,6 +94,39 @@ const formatEnvValue = (value) => {
 const isPlaceholderSecret = (value) =>
     !value || value === 'change-me' || value === 'your-secret-key-change-me';
 
+const buildEnvFileContents = (values, existing) => {
+    const outputLines = [
+        '# AdPlay local settings',
+        '# This file is created automatically the first time you launch AdPlay.',
+        '# You can edit these values later if you need to change the login or port.',
+        ...knownEnvKeys.map((key) => `${key}=${formatEnvValue(values[key] ?? '')}`),
+    ];
+
+    const extraKeys = Object.keys(existing)
+        .filter((key) => !knownEnvKeys.includes(key))
+        .sort((left, right) => left.localeCompare(right));
+
+    if (extraKeys.length) {
+        outputLines.push('', '# Additional custom settings');
+        for (const key of extraKeys) {
+            outputLines.push(`${key}=${formatEnvValue(existing[key])}`);
+        }
+    }
+
+    return `${outputLines.join(os.EOL)}${os.EOL}`;
+};
+
+const writeManagedEnvFile = (values, existing) => {
+    const nextContents = buildEnvFileContents(values, existing);
+    const currentContents = fs.existsSync(envFilePath) ? fs.readFileSync(envFilePath, 'utf8') : null;
+    if (currentContents !== nextContents) {
+        fs.writeFileSync(envFilePath, nextContents, 'utf8');
+        return true;
+    }
+
+    return false;
+};
+
 const ensureManagedEnvFile = () => {
     const fileExists = fs.existsSync(envFilePath);
     const existing = parseEnvFile(envFilePath);
@@ -105,6 +144,7 @@ const ensureManagedEnvFile = () => {
     };
 
     ensureValue('PORT', '3000');
+    ensureValue('AUTO_HTTPS', 'true');
     ensureValue('HTTPS_ENABLED', 'false');
     ensureValue('HTTPS_KEY_FILE', '');
     ensureValue('HTTPS_CERT_FILE', '');
@@ -115,33 +155,12 @@ const ensureManagedEnvFile = () => {
     ensureValue('MEDIA_TRANSCODE_ENABLED', 'true');
     ensureValue('RESUMABLE_CHUNK_SIZE_MB', '8');
 
-    const outputLines = [
-        '# AdPlay local settings',
-        '# This file is created automatically the first time you launch AdPlay.',
-        '# You can edit these values later if you need to change the login or port.',
-        ...knownEnvKeys.map((key) => `${key}=${formatEnvValue(next[key])}`),
-    ];
-
-    const extraKeys = Object.keys(existing)
-        .filter((key) => !knownEnvKeys.includes(key))
-        .sort((left, right) => left.localeCompare(right));
-
-    if (extraKeys.length) {
-        outputLines.push('', '# Additional custom settings');
-        for (const key of extraKeys) {
-            outputLines.push(`${key}=${formatEnvValue(existing[key])}`);
-        }
-    }
-
-    const nextContents = `${outputLines.join(os.EOL)}${os.EOL}`;
-    if (!fileExists || fs.readFileSync(envFilePath, 'utf8') !== nextContents) {
-        fs.writeFileSync(envFilePath, nextContents, 'utf8');
-        changed = true;
-    }
+    changed = writeManagedEnvFile(next, existing) || changed;
 
     return {
         changed,
         created: !fileExists,
+        existing,
         values: next,
     };
 };
@@ -305,6 +324,125 @@ const parseBooleanEnv = (value, defaultValue = false) => {
     return ['true', '1', 'yes', 'on'].includes(value.trim().toLowerCase());
 };
 
+const runQuietCommand = (command, commandArgs, cwd) =>
+    new Promise((resolve, reject) => {
+        let stdout = '';
+        let stderr = '';
+        let child;
+
+        try {
+            child = spawn(command, commandArgs, {
+                cwd,
+                shell: false,
+                stdio: ['ignore', 'pipe', 'pipe'],
+            });
+        } catch (error) {
+            reject(error);
+            return;
+        }
+
+        child.stdout.on('data', (chunk) => {
+            stdout += chunk.toString();
+        });
+        child.stderr.on('data', (chunk) => {
+            stderr += chunk.toString();
+        });
+        child.on('error', reject);
+        child.on('exit', (code) => {
+            if (code === 0) {
+                resolve({ stdout, stderr });
+                return;
+            }
+
+            reject(new Error(stderr.trim() || stdout.trim() || `Command failed with exit code ${code ?? 'unknown'}.`));
+        });
+    });
+
+const isCommandAvailable = async (command) => {
+    try {
+        await runQuietCommand(command, ['--version'], rootDir);
+        return true;
+    } catch {
+        return false;
+    }
+};
+
+const ensureHttpsCertificates = async (hosts) => {
+    fs.mkdirSync(httpsCertDir, { recursive: true });
+
+    await runCommand('Installing local HTTPS trust', 'mkcert', ['-install'], rootDir);
+    await runCommand(
+        'Generating local HTTPS certificate',
+        'mkcert',
+        ['-key-file', httpsKeyPath, '-cert-file', httpsCertPath, ...hosts],
+        backendDir,
+    );
+};
+
+const readManagedPid = () => {
+    if (!fs.existsSync(pidFilePath)) {
+        return null;
+    }
+
+    const raw = fs.readFileSync(pidFilePath, 'utf8').trim();
+    const pid = Number.parseInt(raw, 10);
+    if (!Number.isInteger(pid) || pid <= 0) {
+        fs.rmSync(pidFilePath, { force: true });
+        return null;
+    }
+
+    try {
+        process.kill(pid, 0);
+        return pid;
+    } catch {
+        fs.rmSync(pidFilePath, { force: true });
+        return null;
+    }
+};
+
+const waitForPortToBeAvailable = (port, timeoutMs = 15000) =>
+    new Promise((resolve, reject) => {
+        const deadline = Date.now() + timeoutMs;
+
+        const poll = async () => {
+            try {
+                if (await isPortAvailable(port)) {
+                    resolve();
+                    return;
+                }
+            } catch (error) {
+                reject(error);
+                return;
+            }
+
+            if (Date.now() >= deadline) {
+                reject(new Error(`Timed out waiting for port ${port} to become available.`));
+                return;
+            }
+
+            setTimeout(poll, 500);
+        };
+
+        poll();
+    });
+
+const stopManagedServer = async (port) => {
+    const pid = readManagedPid();
+    if (!pid) {
+        return false;
+    }
+
+    try {
+        process.kill(pid, 'SIGTERM');
+    } catch {
+        fs.rmSync(pidFilePath, { force: true });
+        return false;
+    }
+    await waitForPortToBeAvailable(port);
+    fs.rmSync(pidFilePath, { force: true });
+    return true;
+};
+
 const writeAccessFile = ({ adminPassword, adminUsername, localIps, port, protocol }) => {
     const lines = [
         'AdPlay Access',
@@ -377,6 +515,38 @@ const getJson = (url, timeoutMs = 3000) =>
         });
     });
 
+const getJsonWithHttps = (url, timeoutMs = 3000) =>
+    new Promise((resolve, reject) => {
+        const request = https.get(
+            url,
+            {
+                rejectUnauthorized: false,
+            },
+            (response) => {
+                let body = '';
+                response.setEncoding('utf8');
+                response.on('data', (chunk) => {
+                    body += chunk;
+                });
+                response.on('end', () => {
+                    try {
+                        resolve({
+                            body: body ? JSON.parse(body) : null,
+                            statusCode: response.statusCode ?? 0,
+                        });
+                    } catch (error) {
+                        reject(error);
+                    }
+                });
+            },
+        );
+
+        request.on('error', reject);
+        request.setTimeout(timeoutMs, () => {
+            request.destroy(new Error(`Timed out waiting for ${url}.`));
+        });
+    });
+
 const waitForServerReady = (url, timeoutMs = 45000) =>
     new Promise((resolve, reject) => {
         const deadline = Date.now() + timeoutMs;
@@ -439,12 +609,51 @@ const isAdPlayAlreadyRunning = async (port) => {
     }
 };
 
+const getRunningProtocol = async (port) => {
+    try {
+        const response = await getJson(`http://127.0.0.1:${port}/api/health`);
+        if (response.statusCode === 200 && response.body?.ok === true) {
+            return 'http';
+        }
+    } catch {
+        // ignore
+    }
+
+    try {
+        const response = await getJsonWithHttps(`https://127.0.0.1:${port}/api/health`);
+        if (response.statusCode === 200 && response.body?.ok === true) {
+            return 'https';
+        }
+    } catch {
+        // ignore
+    }
+
+    return null;
+};
+
 const main = async () => {
     logSection('AdPlay One-Click Startup');
 
     const envState = ensureManagedEnvFile();
     const port = Number.parseInt(envState.values.PORT || '3000', 10) || 3000;
     const localIps = getLocalIpv4Addresses();
+    const autoHttpsEnabled = parseBooleanEnv(envState.values.AUTO_HTTPS, true);
+    const mkcertInstalled = await isCommandAvailable('mkcert');
+    const shouldAutoEnableHttps = autoHttpsEnabled && mkcertInstalled;
+
+    if (shouldAutoEnableHttps) {
+        const certificateHosts = ['localhost', '127.0.0.1', '::1', ...localIps].filter(
+            (host, index, allHosts) => allHosts.indexOf(host) === index,
+        );
+
+        await ensureHttpsCertificates(certificateHosts);
+        envState.values.HTTPS_ENABLED = 'true';
+        envState.values.HTTPS_KEY_FILE = httpsKeyPath;
+        envState.values.HTTPS_CERT_FILE = httpsCertPath;
+    }
+
+    const envPersisted = writeManagedEnvFile(envState.values, envState.existing);
+    envState.changed = envState.changed || envPersisted;
     const protocol = parseBooleanEnv(envState.values.HTTPS_ENABLED, false) ? 'https' : 'http';
 
     if (envState.created) {
@@ -512,7 +721,25 @@ const main = async () => {
     console.log('');
 
     if (!(await isPortAvailable(port))) {
-        if (await isAdPlayAlreadyRunning(port)) {
+        const runningProtocol = await getRunningProtocol(port);
+        if (runningProtocol) {
+            const needsRestart = runningProtocol !== protocol || (envPersisted && protocol === 'https');
+
+            if (needsRestart) {
+                const restarted = await stopManagedServer(port);
+                if (!restarted) {
+                    throw new Error(
+                        `AdPlay is already running on port ${port} over ${runningProtocol}. Stop the existing app once so the launcher can switch it to ${protocol}.`,
+                    );
+                }
+            } else {
+                console.log(`AdPlay is already running on port ${port}.`);
+                if (shouldOpenBrowser) {
+                    await openBrowser(`${runningProtocol}://${preferredHost}:${port}/admin`);
+                }
+                return;
+            }
+        } else if (await isAdPlayAlreadyRunning(port)) {
             console.log(`AdPlay is already running on port ${port}.`);
             if (shouldOpenBrowser) {
                 await openBrowser(adminUrl);
@@ -532,6 +759,7 @@ const main = async () => {
             ...envState.values,
         },
     });
+    fs.writeFileSync(pidFilePath, `${serverProcess.pid}${os.EOL}`, 'utf8');
 
     let openedBrowser = false;
     let shuttingDown = false;
@@ -547,15 +775,24 @@ const main = async () => {
         }
     };
 
+    const cleanupPidFile = () => {
+        const rawPid = fs.existsSync(pidFilePath) ? fs.readFileSync(pidFilePath, 'utf8').trim() : '';
+        if (rawPid === String(serverProcess.pid)) {
+            fs.rmSync(pidFilePath, { force: true });
+        }
+    };
+
     process.on('SIGINT', stopServer);
     process.on('SIGTERM', stopServer);
 
     serverProcess.on('error', (error) => {
+        cleanupPidFile();
         console.error(describeSpawnError('Starting AdPlay', error));
         process.exit(1);
     });
 
     serverProcess.on('exit', (code) => {
+        cleanupPidFile();
         process.exit(code ?? 0);
     });
 

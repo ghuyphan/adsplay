@@ -375,6 +375,7 @@ Example:
 
 ```env
 PORT=3000
+AUTO_HTTPS=true
 HTTPS_ENABLED=false
 HTTPS_KEY_FILE=
 HTTPS_CERT_FILE=
@@ -396,6 +397,9 @@ RESUMABLE_CHUNK_SIZE_MB=8
 
 - `HTTPS_ENABLED`
   Serve AdPlay over HTTPS when set to `true`
+
+- `AUTO_HTTPS`
+  Automatically enable local HTTPS with `mkcert` when `mkcert` is installed on the host computer
 
 - `HTTPS_KEY_FILE`
   Path to the TLS private key file used when HTTPS is enabled
@@ -432,6 +436,8 @@ Chrome desktop only shows the PWA install UI on `https://...` or `http://localho
 If you want installability on a LAN IP like `https://192.168.1.50:3000`, run AdPlay with a trusted local certificate.
 
 One practical option is `mkcert`.
+
+If `mkcert` is already installed, AdPlay now detects it during startup, generates or refreshes a local certificate for `localhost` and your current LAN IPs, enables HTTPS automatically, and opens `https://...` links for you.
 
 macOS:
 
