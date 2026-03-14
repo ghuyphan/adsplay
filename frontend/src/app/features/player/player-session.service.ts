@@ -61,6 +61,7 @@ export class PlayerSessionService {
   private playerAccessToken: string | null = null;
   private readonly prefetchingUrls = new Set<string>();
   private hlsLibraryPromise: Promise<typeof import('hls.js').default> | null = null;
+  private unmuteOverlayTimeout: number | null = null;
 
   private readonly onFullscreenChangeBound = () => {
     this.zone.run(() => {
@@ -145,6 +146,7 @@ export class PlayerSessionService {
       window.clearTimeout(this.endedSafetyTimeout);
     }
     this.clearImageAdvanceTimer();
+    this.clearUnmuteOverlayTimeout();
 
     if (this.currentObjectUrl) {
       this.releaseCurrentObjectUrl();
@@ -189,6 +191,7 @@ export class PlayerSessionService {
     this.stopHeartbeat(true);
     this.stopPlaylistSync();
     this.clearImageAdvanceTimer();
+    this.clearUnmuteOverlayTimeout();
     this.profile.set(null);
     this.showUnmuteOverlay.set(false);
     this.currentMediaType.set(null);
@@ -236,6 +239,7 @@ export class PlayerSessionService {
     this.stopHeartbeat(true);
     this.stopPlaylistSync();
     this.clearImageAdvanceTimer();
+    this.clearUnmuteOverlayTimeout();
     this.playerAccessToken = null;
     this.profile.set(null);
     this.showUnmuteOverlay.set(false);
@@ -317,6 +321,13 @@ export class PlayerSessionService {
     }
   }
 
+  private clearUnmuteOverlayTimeout() {
+    if (this.unmuteOverlayTimeout) {
+      window.clearTimeout(this.unmuteOverlayTimeout);
+      this.unmuteOverlayTimeout = null;
+    }
+  }
+
   private sendHeartbeatPulse() {
     const profile = this.profile();
     const playerAccessToken = this.playerAccessToken;
@@ -388,6 +399,7 @@ export class PlayerSessionService {
     this.stopHeartbeat(true);
     this.stopPlaylistSync();
     this.clearImageAdvanceTimer();
+    this.clearUnmuteOverlayTimeout();
     this.loading.set(true);
     this.api.getProfileBySlug(profileSlug).subscribe({
       next: (profile) => {
@@ -417,6 +429,7 @@ export class PlayerSessionService {
         this.stopHeartbeat(true);
         this.stopPlaylistSync();
         this.clearImageAdvanceTimer();
+        this.clearUnmuteOverlayTimeout();
         this.loading.set(false);
         this.statusMessage.set('Không tìm thấy màn hình được yêu cầu.');
         this.profile.set(null);
@@ -573,16 +586,29 @@ export class PlayerSessionService {
     try {
       this.videoElement.muted = false;
       await this.videoElement.play();
+      this.clearUnmuteOverlayTimeout();
       this.showUnmuteOverlay.set(false);
     } catch {
       this.videoElement.muted = true;
       try {
         await this.videoElement.play();
+        this.setUnmuteOverlayAutoHide();
         this.showUnmuteOverlay.set(true);
       } catch {
+        this.setUnmuteOverlayAutoHide();
         this.showUnmuteOverlay.set(true);
       }
     }
+  }
+
+  private setUnmuteOverlayAutoHide() {
+    this.clearUnmuteOverlayTimeout();
+    this.unmuteOverlayTimeout = window.setTimeout(() => {
+      this.zone.run(() => {
+        this.showUnmuteOverlay.set(false);
+        this.unmuteOverlayTimeout = null;
+      });
+    }, 5000);
   }
 
   private unmuteAndPlay() {
@@ -592,6 +618,7 @@ export class PlayerSessionService {
 
     this.videoElement.muted = false;
     void this.videoElement.play();
+    this.clearUnmuteOverlayTimeout();
     this.showUnmuteOverlay.set(false);
   }
 
@@ -866,6 +893,7 @@ export class PlayerSessionService {
   private applyImagePlayback(playback: PlaybackSource) {
     this.destroyHls();
     this.activePlaybackMode = null;
+    this.clearUnmuteOverlayTimeout();
     this.showUnmuteOverlay.set(false);
     this.currentVideoPosterUrl.set('');
     this.currentImageUrl.set(playback.sourceUrl);
@@ -926,6 +954,7 @@ export class PlayerSessionService {
     if (this.isPlaylistUpdated) {
       this.isPlaylistUpdated = false;
       this.clearImageAdvanceTimer();
+      this.clearUnmuteOverlayTimeout();
       this.currentVideoIndex.set(0);
       this.currentMediaType.set(null);
       this.currentImageUrl.set('');
@@ -951,6 +980,7 @@ export class PlayerSessionService {
     }
 
     this.clearImageAdvanceTimer();
+    this.clearUnmuteOverlayTimeout();
     this.currentVideoIndex.set(nextIndex);
     void this.loadAndPlayMedia(nextIndex);
   }
