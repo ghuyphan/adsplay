@@ -1,948 +1,955 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-    />
-    <meta
-      http-equiv="Cache-Control"
-      content="no-store, no-cache, must-revalidate, max-age=0"
-    />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <title>AdPlay Legacy Player</title>
-    <style>
-      html,
-      body {
-        margin: 0;
-        padding: 0;
-        width: 100%;
-        height: 100%;
-        background: #000;
-        color: #fff;
-        font-family: Arial, sans-serif;
-      }
 
-      body {
-        overflow: hidden;
-      }
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <title>AdPlay Legacy Player</title>
 
-      #app {
-        position: relative;
-        width: 100%;
-        height: 100%;
-        background: #000;
-      }
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#000000">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="AdPlay Legacy">
 
-      #video,
-      #image {
-        width: 100%;
-        height: 100%;
-        background: #000;
-        object-fit: contain;
-      }
+  <style>
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      color: #fff;
+      font-family: Arial, sans-serif;
+    }
 
-      #empty {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 80%;
-        max-width: 720px;
-        transform: translate(-50%, -50%);
-        text-align: center;
-        z-index: 15;
-        padding: 24px;
-        background: rgba(0, 0, 0, 0.88);
-        border: 1px solid rgba(255, 255, 255, 0.14);
-      }
+    body {
+      overflow: hidden;
+    }
 
-      #empty h1 {
-        margin: 0 0 12px 0;
-        font-size: 28px;
-      }
+    #app {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background: #000;
+    }
 
-      #empty p {
-        margin: 0;
-        font-size: 18px;
-        line-height: 1.5;
-      }
+    #video,
+    #image {
+      width: 100%;
+      height: 100%;
+      background: #000;
+      object-fit: contain;
+    }
 
-      .hidden {
-        display: none;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="app">
-      <video id="video" autoplay playsinline webkit-playsinline></video>
-      <img id="image" class="hidden" alt="Ad image" />
+    #empty {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 80%;
+      max-width: 720px;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      z-index: 15;
+      padding: 24px;
+      background: rgba(0, 0, 0, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+    }
 
-      <div id="empty" class="hidden">
-        <h1 id="empty-title">AdPlay Legacy Player</h1>
-        <p id="empty-message"></p>
-      </div>
+    #empty h1 {
+      margin: 0 0 12px 0;
+      font-size: 28px;
+    }
+
+    #empty p {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.5;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app">
+    <video id="video" autoplay playsinline webkit-playsinline></video>
+    <img id="image" class="hidden" alt="Ad image" />
+
+    <div id="empty" class="hidden">
+      <h1 id="empty-title">AdPlay Legacy Player</h1>
+      <p id="empty-message"></p>
     </div>
+  </div>
 
-    <script>
-      (function () {
-        var app = document.getElementById('app');
-        var video = document.getElementById('video');
-        var image = document.getElementById('image');
-        var empty = document.getElementById('empty');
-        var emptyTitle = document.getElementById('empty-title');
-        var emptyMessage = document.getElementById('empty-message');
+  <script>
+    (function () {
+      var app = document.getElementById('app');
+      var video = document.getElementById('video');
+      var image = document.getElementById('image');
+      var empty = document.getElementById('empty');
+      var emptyTitle = document.getElementById('empty-title');
+      var emptyMessage = document.getElementById('empty-message');
 
-        var state = {
-          currentIndex: 0,
-          currentProfile: null,
-          currentMediaKey: '',
-          endedSafetyTimer: null,
-          hasTriedAutoFullscreen: false,
-          heartbeatTimer: null,
-          imageAdvanceTimer: null,
-          playbackStartTimer: null,
-          playbackRetryCount: 0,
-          profileSlug: '',
-          profileSyncTimer: null,
-          token: '',
-        };
+      var state = {
+        currentIndex: 0,
+        currentProfile: null,
+        currentMediaKey: '',
+        endedSafetyTimer: null,
+        hasTriedAutoFullscreen: false,
+        heartbeatTimer: null,
+        imageAdvanceTimer: null,
+        playbackStartTimer: null,
+        playbackRetryCount: 0,
+        profileSlug: '',
+        profileSyncTimer: null,
+        token: '',
+      };
 
-        function showElement(element, shouldShow) {
-          if (!element) {
-            return;
-          }
-
-          if (shouldShow) {
-            element.className = element.className.replace(/\bhidden\b/g, '').replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
-            return;
-          }
-
-          if (element.className.indexOf('hidden') === -1) {
-            element.className = (element.className + ' hidden').replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
-          }
+      function showElement(element, shouldShow) {
+        if (!element) {
+          return;
         }
 
-        function setStatus(message) {
-          return message;
+        if (shouldShow) {
+          element.className = element.className.replace(/\bhidden\b/g, '').replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
+          return;
         }
 
-        function setDetail(message) {
-          return message;
+        if (element.className.indexOf('hidden') === -1) {
+          element.className = (element.className + ' hidden').replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
         }
+      }
 
-        function setWarning(message) {
-          return message;
+      function setStatus(message) {
+        return message;
+      }
+
+      function setDetail(message) {
+        return message;
+      }
+
+      function setWarning(message) {
+        return message;
+      }
+
+      function showEmpty(message, heading) {
+        showElement(empty, true);
+        if (emptyTitle) {
+          emptyTitle.innerHTML = heading || 'AdPlay Legacy Player';
         }
-
-        function showEmpty(message, heading) {
-          showElement(empty, true);
-          if (emptyTitle) {
-            emptyTitle.innerHTML = heading || 'AdPlay Legacy Player';
-          }
-          if (emptyMessage) {
-            emptyMessage.innerHTML = message || '';
-          }
+        if (emptyMessage) {
+          emptyMessage.innerHTML = message || '';
         }
+      }
 
-        function hideEmpty() {
-          showElement(empty, false);
-        }
+      function hideEmpty() {
+        showElement(empty, false);
+      }
 
-        function parseQueryValue(name) {
-          var search = window.location.search || '';
-          var query = search.charAt(0) === '?' ? search.substring(1) : search;
-          var parts = query.split('&');
-          var index;
-          var pair;
-          var key;
-          var value;
+      function parseQueryValue(name) {
+        var search = window.location.search || '';
+        var query = search.charAt(0) === '?' ? search.substring(1) : search;
+        var parts = query.split('&');
+        var index;
+        var pair;
+        var key;
+        var value;
 
-          for (index = 0; index < parts.length; index += 1) {
-            pair = parts[index].split('=');
-            key = decodeValue(pair[0]);
-            if (key === name) {
-              value = pair.length > 1 ? pair.slice(1).join('=') : '';
-              return decodeValue(value);
-            }
-          }
-
-          return '';
-        }
-
-        function decodeValue(value) {
-          try {
-            return decodeURIComponent(String(value || '').replace(/\+/g, ' '));
-          } catch (error) {
-            return String(value || '');
+        for (index = 0; index < parts.length; index += 1) {
+          pair = parts[index].split('=');
+          key = decodeValue(pair[0]);
+          if (key === name) {
+            value = pair.length > 1 ? pair.slice(1).join('=') : '';
+            return decodeValue(value);
           }
         }
 
-        function getPlayerTokenStorageKey(slug) {
-          return 'adsplay-player-token:' + String(slug || '');
+        return '';
+      }
+
+      function decodeValue(value) {
+        try {
+          return decodeURIComponent(String(value || '').replace(/\+/g, ' '));
+        } catch (error) {
+          return String(value || '');
         }
+      }
 
-        function getStoredToken(slug) {
-          try {
-            if (!window.localStorage || !slug) {
-              return '';
-            }
+      function getPlayerTokenStorageKey(slug) {
+        return 'adsplay-player-token:' + String(slug || '');
+      }
 
-            return window.localStorage.getItem(getPlayerTokenStorageKey(slug)) || '';
-          } catch (error) {
+      function getStoredToken(slug) {
+        try {
+          if (!window.localStorage || !slug) {
             return '';
           }
+
+          return window.localStorage.getItem(getPlayerTokenStorageKey(slug)) || '';
+        } catch (error) {
+          return '';
         }
+      }
 
-        function storeToken(slug, token) {
-          try {
-            if (!window.localStorage || !slug || !token) {
-              return;
-            }
-
-            window.localStorage.setItem(getPlayerTokenStorageKey(slug), token);
-          } catch (error) {
-            return;
-          }
-        }
-
-        function clearStoredToken(slug) {
-          try {
-            if (!window.localStorage || !slug) {
-              return;
-            }
-
-            window.localStorage.removeItem(getPlayerTokenStorageKey(slug));
-          } catch (error) {
-            return;
-          }
-        }
-
-        function stripTokenFromUrl() {
-          var search = window.location.search || '';
-          var query = search.charAt(0) === '?' ? search.substring(1) : search;
-          var parts = query ? query.split('&') : [];
-          var kept = [];
-          var index;
-          var pair;
-          var key;
-          var nextSearch;
-          var nextUrl;
-
-          if (!window.history || typeof window.history.replaceState !== 'function') {
+      function storeToken(slug, token) {
+        try {
+          if (!window.localStorage || !slug || !token) {
             return;
           }
 
-          for (index = 0; index < parts.length; index += 1) {
-            pair = parts[index].split('=');
-            key = decodeValue(pair[0]);
-            if (key && key !== 'token') {
-              kept.push(parts[index]);
+          window.localStorage.setItem(getPlayerTokenStorageKey(slug), token);
+        } catch (error) {
+          return;
+        }
+      }
+
+      function clearStoredToken(slug) {
+        try {
+          if (!window.localStorage || !slug) {
+            return;
+          }
+
+          window.localStorage.removeItem(getPlayerTokenStorageKey(slug));
+        } catch (error) {
+          return;
+        }
+      }
+
+      function stripTokenFromUrl() {
+        var search = window.location.search || '';
+        var query = search.charAt(0) === '?' ? search.substring(1) : search;
+        var parts = query ? query.split('&') : [];
+        var kept = [];
+        var index;
+        var pair;
+        var key;
+        var nextSearch;
+        var nextUrl;
+
+        if (!window.history || typeof window.history.replaceState !== 'function') {
+          return;
+        }
+
+        for (index = 0; index < parts.length; index += 1) {
+          pair = parts[index].split('=');
+          key = decodeValue(pair[0]);
+          if (key && key !== 'token') {
+            kept.push(parts[index]);
+          }
+        }
+
+        nextSearch = kept.length ? '?' + kept.join('&') : '';
+        nextUrl = (window.location.pathname || '') + nextSearch + (window.location.hash || '');
+
+        if (nextUrl !== (window.location.pathname || '') + (window.location.search || '') + (window.location.hash || '')) {
+          window.history.replaceState(null, document.title, nextUrl);
+        }
+      }
+
+      function getProfileSlug() {
+        var pathname = window.location.pathname || '';
+        var marker = '/player-legacy/';
+        var markerIndex = pathname.indexOf(marker);
+        var slug = '';
+        var slashIndex;
+
+        if (markerIndex !== -1) {
+          slug = pathname.substring(markerIndex + marker.length);
+          slashIndex = slug.indexOf('/');
+          if (slashIndex !== -1) {
+            slug = slug.substring(0, slashIndex);
+          }
+          slug = decodeValue(slug);
+        }
+
+        if (!slug) {
+          slug = parseQueryValue('profile');
+        }
+
+        return slug;
+      }
+
+      function buildProfileUrl(slug) {
+        return '/api/profiles/slug/' + encodeURIComponent(slug) + '?_t=' + new Date().getTime();
+      }
+
+      function buildHeartbeatUrl(slug) {
+        return '/api/profiles/slug/' + encodeURIComponent(slug) + '/heartbeat';
+      }
+
+      function buildVideoUrl(videoItem) {
+        return '/api/videos/' + encodeURIComponent(videoItem.id) + '/stream?v=' + encodeURIComponent(videoItem.updatedAt || '');
+      }
+
+      function buildMediaUrl(videoItem) {
+        return buildVideoUrl(videoItem);
+      }
+
+      function isImageItem(videoItem) {
+        return !!(videoItem && videoItem.mediaType === 'image');
+      }
+
+      function request(method, url, headers, body, callback) {
+        var xhr = new XMLHttpRequest();
+        xhr.open(method, url, true);
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState !== 4) {
+            return;
+          }
+
+          callback(xhr.status, xhr.responseText);
+        };
+
+        xhr.onerror = function () {
+          callback(0, '');
+        };
+
+        if (headers) {
+          var headerName;
+          for (headerName in headers) {
+            if (headers.hasOwnProperty(headerName)) {
+              xhr.setRequestHeader(headerName, headers[headerName]);
             }
           }
-
-          nextSearch = kept.length ? '?' + kept.join('&') : '';
-          nextUrl = (window.location.pathname || '') + nextSearch + (window.location.hash || '');
-
-          if (nextUrl !== (window.location.pathname || '') + (window.location.search || '') + (window.location.hash || '')) {
-            window.history.replaceState(null, document.title, nextUrl);
-          }
         }
 
-        function getProfileSlug() {
-          var pathname = window.location.pathname || '';
-          var marker = '/player-legacy/';
-          var markerIndex = pathname.indexOf(marker);
-          var slug = '';
-          var slashIndex;
+        xhr.send(body || null);
+      }
 
-          if (markerIndex !== -1) {
-            slug = pathname.substring(markerIndex + marker.length);
-            slashIndex = slug.indexOf('/');
-            if (slashIndex !== -1) {
-              slug = slug.substring(0, slashIndex);
-            }
-            slug = decodeValue(slug);
-          }
+      function parseJson(text) {
+        try {
+          return JSON.parse(text);
+        } catch (error) {
+          return null;
+        }
+      }
 
-          if (!slug) {
-            slug = parseQueryValue('profile');
-          }
-
-          return slug;
+      function getVideoAt(index) {
+        if (!state.currentProfile || !state.currentProfile.videos || !state.currentProfile.videos.length) {
+          return null;
         }
 
-        function buildProfileUrl(slug) {
-          return '/api/profiles/slug/' + encodeURIComponent(slug) + '?_t=' + new Date().getTime();
+        if (index < 0 || index >= state.currentProfile.videos.length) {
+          return null;
         }
 
-        function buildHeartbeatUrl(slug) {
-          return '/api/profiles/slug/' + encodeURIComponent(slug) + '/heartbeat';
-        }
+        return state.currentProfile.videos[index];
+      }
 
-        function buildVideoUrl(videoItem) {
-          return '/api/videos/' + encodeURIComponent(videoItem.id) + '/stream?v=' + encodeURIComponent(videoItem.updatedAt || '');
-        }
-
-        function buildMediaUrl(videoItem) {
-          return buildVideoUrl(videoItem);
-        }
-
-        function isImageItem(videoItem) {
-          return !!(videoItem && videoItem.mediaType === 'image');
-        }
-
-        function request(method, url, headers, body, callback) {
-          var xhr = new XMLHttpRequest();
-          xhr.open(method, url, true);
-          xhr.onreadystatechange = function () {
-            if (xhr.readyState !== 4) {
-              return;
-            }
-
-            callback(xhr.status, xhr.responseText);
-          };
-
-          xhr.onerror = function () {
-            callback(0, '');
-          };
-
-          if (headers) {
-            var headerName;
-            for (headerName in headers) {
-              if (headers.hasOwnProperty(headerName)) {
-                xhr.setRequestHeader(headerName, headers[headerName]);
-              }
-            }
-          }
-
-          xhr.send(body || null);
-        }
-
-        function parseJson(text) {
-          try {
-            return JSON.parse(text);
-          } catch (error) {
-            return null;
-          }
-        }
-
-        function getVideoAt(index) {
-          if (!state.currentProfile || !state.currentProfile.videos || !state.currentProfile.videos.length) {
-            return null;
-          }
-
-          if (index < 0 || index >= state.currentProfile.videos.length) {
-            return null;
-          }
-
-          return state.currentProfile.videos[index];
-        }
-
-        function findVideoIndexById(videoId, videos) {
-          var index;
-          if (!videoId || !videos) {
-            return -1;
-          }
-
-          for (index = 0; index < videos.length; index += 1) {
-            if (videos[index] && videos[index].id === videoId) {
-              return index;
-            }
-          }
-
+      function findVideoIndexById(videoId, videos) {
+        var index;
+        if (!videoId || !videos) {
           return -1;
         }
 
-        function isFullscreenActive() {
-          return !!(
-            document.fullscreenElement ||
-            document.webkitFullscreenElement ||
-            document.webkitCurrentFullScreenElement ||
-            document.mozFullScreenElement ||
-            document.msFullscreenElement ||
-            (video && video.webkitDisplayingFullscreen)
-          );
+        for (index = 0; index < videos.length; index += 1) {
+          if (videos[index] && videos[index].id === videoId) {
+            return index;
+          }
         }
 
-        function callFullscreenMethod(target) {
-          var requestMethod;
-          var result;
+        return -1;
+      }
 
-          if (!target) {
-            return false;
-          }
+      function isFullscreenActive() {
+        return !!(
+          document.fullscreenElement ||
+          document.webkitFullscreenElement ||
+          document.webkitCurrentFullScreenElement ||
+          document.mozFullScreenElement ||
+          document.msFullscreenElement ||
+          (video && video.webkitDisplayingFullscreen)
+        );
+      }
 
-          requestMethod =
-            target.requestFullscreen ||
-            target.webkitRequestFullscreen ||
-            target.webkitRequestFullScreen ||
-            target.mozRequestFullScreen ||
-            target.msRequestFullscreen;
+      function callFullscreenMethod(target) {
+        var requestMethod;
+        var result;
 
-          if (typeof requestMethod === 'function') {
-            try {
-              result = requestMethod.call(target);
-              if (result && typeof result.catch === 'function') {
-                result.catch(function () {
-                  return undefined;
-                });
-              }
-              return true;
-            } catch (error) {
-              return false;
-            }
-          }
-
+        if (!target) {
           return false;
         }
 
-        function tryEnterFullscreen(forceFromGesture) {
-          var target;
+        requestMethod =
+          target.requestFullscreen ||
+          target.webkitRequestFullscreen ||
+          target.webkitRequestFullScreen ||
+          target.mozRequestFullScreen ||
+          target.msRequestFullscreen;
 
-          if (isFullscreenActive()) {
-            return;
-          }
-
-          if (!forceFromGesture && state.hasTriedAutoFullscreen) {
-            return;
-          }
-
-          if (!forceFromGesture) {
-            state.hasTriedAutoFullscreen = true;
-          }
-
-          target = app || video || document.documentElement;
-          if (callFullscreenMethod(target) || callFullscreenMethod(video) || callFullscreenMethod(document.documentElement)) {
-            return;
-          }
-
-          if (video && typeof video.webkitEnterFullscreen === 'function') {
-            try {
-              video.webkitEnterFullscreen();
-            } catch (error) {
-              return;
-            }
-          }
-        }
-
-        function requestAudiblePlaybackFromGesture() {
-          var playResult;
-
-          if (!video) {
-            return;
-          }
-
+        if (typeof requestMethod === 'function') {
           try {
-            video.muted = false;
-            playResult = video.play();
-            if (playResult && typeof playResult.catch === 'function') {
-              playResult.catch(function () {
+            result = requestMethod.call(target);
+            if (result && typeof result.catch === 'function') {
+              result.catch(function () {
                 return undefined;
               });
             }
+            return true;
+          } catch (error) {
+            return false;
+          }
+        }
+
+        return false;
+      }
+
+      function tryEnterFullscreen(forceFromGesture) {
+        var target;
+
+        if (isFullscreenActive()) {
+          return;
+        }
+
+        if (!forceFromGesture && state.hasTriedAutoFullscreen) {
+          return;
+        }
+
+        if (!forceFromGesture) {
+          state.hasTriedAutoFullscreen = true;
+        }
+
+        target = app || video || document.documentElement;
+        if (callFullscreenMethod(target) || callFullscreenMethod(video) || callFullscreenMethod(document.documentElement)) {
+          return;
+        }
+
+        if (video && typeof video.webkitEnterFullscreen === 'function') {
+          try {
+            video.webkitEnterFullscreen();
           } catch (error) {
             return;
           }
         }
+      }
 
-        function handleInteractionGesture() {
-          tryEnterFullscreen(true);
-          requestAudiblePlaybackFromGesture();
+      function requestAudiblePlaybackFromGesture() {
+        var playResult;
+
+        if (!video) {
+          return;
         }
 
-        function isActivationKey(event) {
-          var key = event && event.key;
-          var code = event && event.code;
-          var keyCode = event && (event.keyCode || event.which);
+        try {
+          video.muted = false;
+          playResult = video.play();
+          if (playResult && typeof playResult.catch === 'function') {
+            playResult.catch(function () {
+              return undefined;
+            });
+          }
+        } catch (error) {
+          return;
+        }
+      }
 
-          return (
-            key === 'Enter' ||
-            key === 'NumpadEnter' ||
-            key === ' ' ||
-            key === 'Spacebar' ||
-            key === 'MediaPlay' ||
-            key === 'MediaPlayPause' ||
-            key === 'Select' ||
-            key === 'Accept' ||
-            key === 'OK' ||
-            code === 'Enter' ||
-            code === 'NumpadEnter' ||
-            keyCode === 13 ||
-            keyCode === 23 ||
-            keyCode === 32
+      function handleInteractionGesture() {
+        tryEnterFullscreen(true);
+        requestAudiblePlaybackFromGesture();
+      }
+
+      function isActivationKey(event) {
+        var key = event && event.key;
+        var code = event && event.code;
+        var keyCode = event && (event.keyCode || event.which);
+
+        return (
+          key === 'Enter' ||
+          key === 'NumpadEnter' ||
+          key === ' ' ||
+          key === 'Spacebar' ||
+          key === 'MediaPlay' ||
+          key === 'MediaPlayPause' ||
+          key === 'Select' ||
+          key === 'Accept' ||
+          key === 'OK' ||
+          code === 'Enter' ||
+          code === 'NumpadEnter' ||
+          keyCode === 13 ||
+          keyCode === 23 ||
+          keyCode === 32
+        );
+      }
+
+      function bindFullscreenGesture(target, eventName) {
+        if (!target) {
+          return;
+        }
+
+        if (typeof target.addEventListener === 'function') {
+          target.addEventListener(
+            eventName,
+            function (event) {
+              if (eventName === 'keydown' && !isActivationKey(event)) {
+                return;
+              }
+
+              handleInteractionGesture();
+            },
+            false
           );
         }
+      }
 
-        function bindFullscreenGesture(target, eventName) {
-          if (!target) {
+      function clearEndedSafetyTimer() {
+        if (state.endedSafetyTimer) {
+          window.clearTimeout(state.endedSafetyTimer);
+          state.endedSafetyTimer = null;
+        }
+      }
+
+      function clearImageAdvanceTimer() {
+        if (state.imageAdvanceTimer) {
+          window.clearTimeout(state.imageAdvanceTimer);
+          state.imageAdvanceTimer = null;
+        }
+      }
+
+      function clearPlaybackStartTimer() {
+        if (state.playbackStartTimer) {
+          window.clearTimeout(state.playbackStartTimer);
+          state.playbackStartTimer = null;
+        }
+      }
+
+      function startEndedSafetyTimer(durationSeconds) {
+        clearEndedSafetyTimer();
+
+        if (!durationSeconds || !isFinite(durationSeconds) || durationSeconds <= 0) {
+          return;
+        }
+
+        state.endedSafetyTimer = window.setTimeout(function () {
+          advancePlayback('Dang chuyen sang noi dung tiep theo.');
+        }, Math.max(2000, (durationSeconds + 2) * 1000));
+      }
+
+      function handlePlaybackStartTimeout() {
+        if (!video) {
+          return;
+        }
+
+        if (!video.paused && video.currentTime > 0) {
+          return;
+        }
+
+        if (state.playbackRetryCount < 1) {
+          state.playbackRetryCount += 1;
+          replayCurrentVideo(true);
+          return;
+        }
+
+        state.playbackRetryCount = 0;
+        advancePlayback('Dang thu lai noi dung tiep theo.');
+      }
+
+      function startPlaybackStartTimer() {
+        clearPlaybackStartTimer();
+        state.playbackStartTimer = window.setTimeout(function () {
+          handlePlaybackStartTimeout();
+        }, 4000);
+      }
+
+      function loadVideoSource(src, forceReset) {
+        if (!video) {
+          return;
+        }
+
+        clearPlaybackStartTimer();
+        clearEndedSafetyTimer();
+        clearImageAdvanceTimer();
+
+        try {
+          video.pause();
+        } catch (error) {
+          return;
+        }
+
+        if (forceReset) {
+          try {
+            video.removeAttribute('src');
+            video.load();
+          } catch (error) {
             return;
           }
-
-          if (typeof target.addEventListener === 'function') {
-            target.addEventListener(
-              eventName,
-              function (event) {
-                if (eventName === 'keydown' && !isActivationKey(event)) {
-                  return;
-                }
-
-                handleInteractionGesture();
-              },
-              false
-            );
-          }
         }
 
-        function clearEndedSafetyTimer() {
-          if (state.endedSafetyTimer) {
-            window.clearTimeout(state.endedSafetyTimer);
-            state.endedSafetyTimer = null;
-          }
-        }
-
-        function clearImageAdvanceTimer() {
-          if (state.imageAdvanceTimer) {
-            window.clearTimeout(state.imageAdvanceTimer);
-            state.imageAdvanceTimer = null;
-          }
-        }
-
-        function clearPlaybackStartTimer() {
-          if (state.playbackStartTimer) {
-            window.clearTimeout(state.playbackStartTimer);
-            state.playbackStartTimer = null;
-          }
-        }
-
-        function startEndedSafetyTimer(durationSeconds) {
-          clearEndedSafetyTimer();
-
-          if (!durationSeconds || !isFinite(durationSeconds) || durationSeconds <= 0) {
-            return;
-          }
-
-          state.endedSafetyTimer = window.setTimeout(function () {
-            advancePlayback('Dang chuyen sang noi dung tiep theo.');
-          }, Math.max(2000, (durationSeconds + 2) * 1000));
-        }
-
-        function handlePlaybackStartTimeout() {
+        window.setTimeout(function () {
           if (!video) {
             return;
           }
 
-          if (!video.paused && video.currentTime > 0) {
-            return;
-          }
-
-          if (state.playbackRetryCount < 1) {
-            state.playbackRetryCount += 1;
-            replayCurrentVideo(true);
-            return;
-          }
-
-          state.playbackRetryCount = 0;
-          advancePlayback('Dang thu lai noi dung tiep theo.');
-        }
-
-        function startPlaybackStartTimer() {
-          clearPlaybackStartTimer();
-          state.playbackStartTimer = window.setTimeout(function () {
+          try {
+            video.src = src;
+            video.load();
+            video.currentTime = 0; // Fix for older Samsung TVs
+            safePlay();
+            startPlaybackStartTimer();
+          } catch (error) {
             handlePlaybackStartTimeout();
-          }, 4000);
-        }
-
-        function loadVideoSource(src, forceReset) {
-          if (!video) {
-            return;
           }
+        }, forceReset ? 180 : 0);
+      }
 
-          clearPlaybackStartTimer();
-          clearEndedSafetyTimer();
-          clearImageAdvanceTimer();
+      function showImageSource(src, durationSeconds) {
+        clearPlaybackStartTimer();
+        clearEndedSafetyTimer();
+        clearImageAdvanceTimer();
 
+        if (video) {
           try {
             video.pause();
+            video.removeAttribute('src');
+            video.load();
           } catch (error) {
             return;
           }
-
-          if (forceReset) {
-            try {
-              video.removeAttribute('src');
-              video.load();
-            } catch (error) {
-              return;
-            }
-          }
-
-          window.setTimeout(function () {
-            if (!video) {
-              return;
-            }
-
-            try {
-              video.src = src;
-              video.load();
-              safePlay();
-              startPlaybackStartTimer();
-            } catch (error) {
-              handlePlaybackStartTimeout();
-            }
-          }, forceReset ? 180 : 0);
         }
 
-        function showImageSource(src, durationSeconds) {
-          clearPlaybackStartTimer();
-          clearEndedSafetyTimer();
-          clearImageAdvanceTimer();
+        showElement(video, false);
+        showElement(image, true);
 
-          if (video) {
-            try {
-              video.pause();
-              video.removeAttribute('src');
-              video.load();
-            } catch (error) {
-              return;
-            }
-          }
-
-          showElement(video, false);
-          showElement(image, true);
-
-          if (image) {
-            image.onload = function () {
-              tryEnterFullscreen(false);
-            };
-            image.src = src;
-          }
-
-          state.imageAdvanceTimer = window.setTimeout(function () {
-            advancePlayback('Dang chuyen sang noi dung tiep theo.');
-          }, Math.max(3000, (durationSeconds && isFinite(durationSeconds) ? durationSeconds : 10) * 1000));
-        }
-
-        function replayCurrentVideo(forceReload) {
-          var currentVideo = getVideoAt(state.currentIndex);
-          var shouldForceReload = forceReload === true;
-
-          if (!video || !currentVideo) {
-            return;
-          }
-
-          clearEndedSafetyTimer();
-          clearPlaybackStartTimer();
-          clearImageAdvanceTimer();
-
-          if (!shouldForceReload) {
-            try {
-              video.currentTime = 0;
-              startEndedSafetyTimer(video.duration);
-              safePlay();
-              startPlaybackStartTimer();
-              return;
-            } catch (error) {
-              shouldForceReload = true;
-            }
-          }
-
-          loadVideoSource(buildVideoUrl(currentVideo), true);
-        }
-
-        function advancePlayback(reason) {
-          if (!state.currentProfile || !state.currentProfile.videos || !state.currentProfile.videos.length) {
-            return;
-          }
-
-          if (state.currentProfile.videos.length === 1) {
-            if (reason) {
-              setStatus(reason);
-            }
-            playCurrentVideo(true);
-            return;
-          }
-
-          nextVideo(reason);
-        }
-
-        function safePlay() {
-          if (!video) {
-            return;
-          }
-
-          try {
+        if (image) {
+          image.onload = function () {
             tryEnterFullscreen(false);
-            var playResult = video.play();
-            if (playResult && typeof playResult.then === 'function') {
-              playResult.catch(function () {
-                video.muted = true;
-                setWarning('TV nay yeu cau tu dong tat tieng de bat dau phat.');
-                try {
-                  video.play();
-                } catch (error) {
-                  setWarning('Khong the tu dong phat video tren trinh duyet nay.');
-                }
-              });
-            }
+          };
+          image.src = src;
+        }
+
+        state.imageAdvanceTimer = window.setTimeout(function () {
+          advancePlayback('Dang chuyen sang noi dung tiep theo.');
+        }, Math.max(3000, (durationSeconds && isFinite(durationSeconds) ? durationSeconds : 10) * 1000));
+      }
+
+      function replayCurrentVideo(forceReload) {
+        var currentVideo = getVideoAt(state.currentIndex);
+        var shouldForceReload = forceReload === true;
+
+        if (!video || !currentVideo) {
+          return;
+        }
+
+        clearEndedSafetyTimer();
+        clearPlaybackStartTimer();
+        clearImageAdvanceTimer();
+
+        if (!shouldForceReload) {
+          try {
+            video.pause(); // Fix for older Samsung TVs
+            video.currentTime = 0;
+            video.load(); // Fix for older Samsung TVs
+            startEndedSafetyTimer(video.duration);
+            safePlay();
+            startPlaybackStartTimer();
+            return;
           } catch (error) {
-            setWarning('Khong the tu dong phat video tren trinh duyet nay.');
+            shouldForceReload = true;
           }
         }
 
-        function updateHeader() {
-          var currentVideo = getVideoAt(state.currentIndex);
-          var profileName = state.currentProfile && state.currentProfile.name ? state.currentProfile.name : 'AdPlay Legacy Player';
-          var line = profileName;
+        loadVideoSource(buildVideoUrl(currentVideo), true);
+      }
 
-          if (currentVideo) {
-            line = line + ' | ' + currentVideo.originalName;
-          }
-
-          document.title = line;
+      function advancePlayback(reason) {
+        if (!state.currentProfile || !state.currentProfile.videos || !state.currentProfile.videos.length) {
+          return;
         }
 
-        function playCurrentVideo(forceReload) {
-          var currentVideo = getVideoAt(state.currentIndex);
-          var nextKey;
-          var src;
+        if (state.currentProfile.videos.length === 1) {
+          if (reason) {
+            setStatus(reason);
+          }
+          playCurrentVideo(true);
+          return;
+        }
 
-          if (!currentVideo) {
-            clearEndedSafetyTimer();
-            clearPlaybackStartTimer();
-            clearImageAdvanceTimer();
-            if (video) {
-              video.removeAttribute('src');
-              video.load();
-            }
-            if (image) {
-              image.removeAttribute('src');
-            }
-            showElement(video, false);
-            showElement(image, false);
-            showEmpty('Man hinh nay chua co noi dung de phat.', state.currentProfile ? state.currentProfile.name : 'Khong co noi dung');
-            setStatus('Khong co noi dung trong playlist.');
-            setDetail('');
-            updateHeader();
+        nextVideo(reason);
+      }
+
+      function safePlay() {
+        if (!video) {
+          return;
+        }
+
+        try {
+          tryEnterFullscreen(false);
+          var playResult = video.play();
+          if (playResult && typeof playResult.then === 'function') {
+            playResult.catch(function () {
+              video.muted = true;
+              setWarning('TV nay yeu cau tu dong tat tieng de bat dau phat.');
+              try {
+                video.play();
+              } catch (error) {
+                setWarning('Khong the tu dong phat video tren trinh duyet nay.');
+              }
+            });
+          }
+        } catch (error) {
+          setWarning('Khong the tu dong phat video tren trinh duyet nay.');
+        }
+      }
+
+      function updateHeader() {
+        var currentVideo = getVideoAt(state.currentIndex);
+        var profileName = state.currentProfile && state.currentProfile.name ? state.currentProfile.name : 'AdPlay Legacy Player';
+        var line = profileName;
+
+        if (currentVideo) {
+          line = line + ' | ' + currentVideo.originalName;
+        }
+
+        document.title = line;
+      }
+
+      function playCurrentVideo(forceReload) {
+        var currentVideo = getVideoAt(state.currentIndex);
+        var nextKey;
+        var src;
+
+        if (!currentVideo) {
+          clearEndedSafetyTimer();
+          clearPlaybackStartTimer();
+          clearImageAdvanceTimer();
+          if (video) {
+            video.removeAttribute('src');
+            video.load();
+          }
+          if (image) {
+            image.removeAttribute('src');
+          }
+          showElement(video, false);
+          showElement(image, false);
+          showEmpty('Man hinh nay chua co noi dung de phat.', state.currentProfile ? state.currentProfile.name : 'Khong co noi dung');
+          setStatus('Khong co noi dung trong playlist.');
+          setDetail('');
+          updateHeader();
+          return;
+        }
+
+        hideEmpty();
+        showElement(video, !isImageItem(currentVideo));
+        showElement(image, isImageItem(currentVideo));
+        nextKey = String(currentVideo.id) + ':' + String(currentVideo.updatedAt || '');
+        if (!forceReload && state.currentMediaKey === nextKey) {
+          updateHeader();
+          return;
+        }
+
+        state.currentMediaKey = nextKey;
+        state.playbackRetryCount = 0;
+        src = buildMediaUrl(currentVideo);
+
+        if (isImageItem(currentVideo)) {
+          showImageSource(src, currentVideo.durationSeconds);
+          setStatus('Dang hien thi noi dung.');
+        } else if (video) {
+          loadVideoSource(src, true);
+          setStatus(currentVideo.processingStatus === 'ready' ? 'Dang phat noi dung.' : 'Dang phat truc tiep tu may chu.');
+        }
+
+        setDetail(
+          'Noi dung ' +
+          (state.currentIndex + 1) +
+          '/' +
+          state.currentProfile.videos.length +
+          ': ' +
+          currentVideo.originalName
+        );
+        updateHeader();
+      }
+
+      function nextVideo(reason) {
+        if (!state.currentProfile || !state.currentProfile.videos || !state.currentProfile.videos.length) {
+          return;
+        }
+
+        clearEndedSafetyTimer();
+        clearPlaybackStartTimer();
+        clearImageAdvanceTimer();
+
+        if (reason) {
+          setStatus(reason);
+        }
+
+        state.currentIndex += 1;
+        if (state.currentIndex >= state.currentProfile.videos.length) {
+          state.currentIndex = 0;
+        }
+
+        playCurrentVideo(true);
+      }
+
+      function applyProfile(profileData) {
+        var currentVideo = getVideoAt(state.currentIndex);
+        var currentVideoId = currentVideo ? currentVideo.id : '';
+        var matchingIndex = findVideoIndexById(currentVideoId, profileData.videos);
+
+        state.currentProfile = profileData;
+
+        if (!profileData.videos || !profileData.videos.length) {
+          state.currentIndex = 0;
+          state.currentMediaKey = '';
+          playCurrentVideo(true);
+          return;
+        }
+
+        if (matchingIndex >= 0) {
+          state.currentIndex = matchingIndex;
+        } else if (state.currentIndex >= profileData.videos.length || state.currentIndex < 0) {
+          state.currentIndex = 0;
+        }
+
+        playCurrentVideo(false);
+      }
+
+      function loadProfile(isInitialLoad) {
+        if (!state.profileSlug) {
+          showEmpty('Mo lai link TV cu tu trang quan tri.', 'Link khong hop le');
+          return;
+        }
+
+        request('GET', buildProfileUrl(state.profileSlug), null, null, function (statusCode, responseText) {
+          var payload;
+
+          if (statusCode !== 200) {
+            showEmpty('Khong tai duoc noi dung tu may chu.', 'Loi ket noi');
+            return;
+          }
+
+          payload = parseJson(responseText);
+          if (!payload || !payload.videos || typeof payload.videos.length !== 'number') {
+            showEmpty('Noi dung hien tai khong kha dung.', 'Khong the phat');
             return;
           }
 
           hideEmpty();
-          showElement(video, !isImageItem(currentVideo));
-          showElement(image, isImageItem(currentVideo));
-          nextKey = String(currentVideo.id) + ':' + String(currentVideo.updatedAt || '');
-          if (!forceReload && state.currentMediaKey === nextKey) {
-            updateHeader();
-            return;
-          }
+          applyProfile(payload);
+        });
+      }
 
-          state.currentMediaKey = nextKey;
-          state.playbackRetryCount = 0;
-          src = buildMediaUrl(currentVideo);
-
-          if (isImageItem(currentVideo)) {
-            showImageSource(src, currentVideo.durationSeconds);
-            setStatus('Dang hien thi noi dung.');
-          } else if (video) {
-            loadVideoSource(src, true);
-            setStatus(currentVideo.processingStatus === 'ready' ? 'Dang phat noi dung.' : 'Dang phat truc tiep tu may chu.');
-          }
-
-          setDetail(
-            'Noi dung ' +
-              (state.currentIndex + 1) +
-              '/' +
-              state.currentProfile.videos.length +
-              ': ' +
-              currentVideo.originalName
-          );
-          updateHeader();
+      function sendHeartbeat() {
+        if (!state.profileSlug || !state.token) {
+          return;
         }
 
-        function nextVideo(reason) {
-          if (!state.currentProfile || !state.currentProfile.videos || !state.currentProfile.videos.length) {
-            return;
-          }
-
-          clearEndedSafetyTimer();
-          clearPlaybackStartTimer();
-          clearImageAdvanceTimer();
-
-          if (reason) {
-            setStatus(reason);
-          }
-
-          state.currentIndex += 1;
-          if (state.currentIndex >= state.currentProfile.videos.length) {
-            state.currentIndex = 0;
-          }
-
-          playCurrentVideo(true);
-        }
-
-        function applyProfile(profileData) {
-          var currentVideo = getVideoAt(state.currentIndex);
-          var currentVideoId = currentVideo ? currentVideo.id : '';
-          var matchingIndex = findVideoIndexById(currentVideoId, profileData.videos);
-
-          state.currentProfile = profileData;
-
-          if (!profileData.videos || !profileData.videos.length) {
-            state.currentIndex = 0;
-            state.currentMediaKey = '';
-            playCurrentVideo(true);
-            return;
-          }
-
-          if (matchingIndex >= 0) {
-            state.currentIndex = matchingIndex;
-          } else if (state.currentIndex >= profileData.videos.length || state.currentIndex < 0) {
-            state.currentIndex = 0;
-          }
-
-          playCurrentVideo(false);
-        }
-
-        function loadProfile(isInitialLoad) {
-          if (!state.profileSlug) {
-            showEmpty('Mo lai link TV cu tu trang quan tri.', 'Link khong hop le');
-            return;
-          }
-
-          request('GET', buildProfileUrl(state.profileSlug), null, null, function (statusCode, responseText) {
-            var payload;
-
-            if (statusCode !== 200) {
-              showEmpty('Khong tai duoc noi dung tu may chu.', 'Loi ket noi');
+        request(
+          'POST',
+          buildHeartbeatUrl(state.profileSlug),
+          {
+            'X-Profile-Token': state.token,
+          },
+          '',
+          function (statusCode) {
+            if (statusCode >= 200 && statusCode < 300) {
               return;
             }
 
-            payload = parseJson(responseText);
-            if (!payload || !payload.videos || typeof payload.videos.length !== 'number') {
-              showEmpty('Noi dung hien tai khong kha dung.', 'Khong the phat');
-              return;
+            if (statusCode === 400 || statusCode === 403 || statusCode === 404) {
+              clearStoredToken(state.profileSlug);
+              state.token = '';
             }
 
-            hideEmpty();
-            applyProfile(payload);
-          });
+            setWarning('TV van dang phat, nhung heartbeat tam thoi khong gui duoc.');
+          }
+        );
+      }
+
+      function startTimers() {
+        if (state.heartbeatTimer) {
+          window.clearInterval(state.heartbeatTimer);
+        }
+        if (state.profileSyncTimer) {
+          window.clearInterval(state.profileSyncTimer);
         }
 
-        function sendHeartbeat() {
-          if (!state.profileSlug || !state.token) {
-            return;
-          }
-
-          request(
-            'POST',
-            buildHeartbeatUrl(state.profileSlug),
-            {
-              'X-Profile-Token': state.token,
-            },
-            '',
-            function (statusCode) {
-              if (statusCode >= 200 && statusCode < 300) {
-                return;
-              }
-
-              if (statusCode === 400 || statusCode === 403 || statusCode === 404) {
-                clearStoredToken(state.profileSlug);
-                state.token = '';
-              }
-
-              setWarning('TV van dang phat, nhung heartbeat tam thoi khong gui duoc.');
-            }
-          );
-        }
-
-        function startTimers() {
-          if (state.heartbeatTimer) {
-            window.clearInterval(state.heartbeatTimer);
-          }
-          if (state.profileSyncTimer) {
-            window.clearInterval(state.profileSyncTimer);
-          }
-
-          state.heartbeatTimer = window.setInterval(function () {
-            sendHeartbeat();
-          }, 30000);
-
-          state.profileSyncTimer = window.setInterval(function () {
-            loadProfile(false);
-          }, 60000);
-        }
-
-        function init() {
-          state.profileSlug = getProfileSlug();
-          state.token = parseQueryValue('token');
-
-          if (state.token) {
-            storeToken(state.profileSlug, state.token);
-            stripTokenFromUrl();
-          } else {
-            state.token = getStoredToken(state.profileSlug);
-          }
-
-          if (video) {
-            video.autoplay = true;
-            bindFullscreenGesture(video, 'click');
-            bindFullscreenGesture(video, 'touchend');
-            video.onended = function () {
-              advancePlayback('Dang chuyen sang noi dung tiep theo.');
-            };
-            video.onerror = function () {
-              clearEndedSafetyTimer();
-              clearPlaybackStartTimer();
-              clearImageAdvanceTimer();
-              if (!state.currentProfile || !state.currentProfile.videos || state.currentProfile.videos.length < 2) {
-                setStatus('Khong phat duoc noi dung hien tai. Dang tai lai playlist...');
-                window.setTimeout(function () {
-                  loadProfile(false);
-                }, 5000);
-                return;
-              }
-
-              nextVideo('Noi dung hien tai loi. Dang bo qua muc tiep theo.');
-            };
-            video.onloadedmetadata = function () {
-              startEndedSafetyTimer(video.duration);
-              tryEnterFullscreen(false);
-              setStatus('Dang phat noi dung.');
-              safePlay();
-            };
-            video.onloadeddata = function () {
-              safePlay();
-            };
-            video.onplaying = function () {
-              clearPlaybackStartTimer();
-              state.playbackRetryCount = 0;
-              startEndedSafetyTimer(video.duration);
-            };
-            video.ontimeupdate = function () {
-              if (video.currentTime > 0.2) {
-                clearPlaybackStartTimer();
-              }
-            };
-          }
-
-          if (image) {
-            bindFullscreenGesture(image, 'click');
-            bindFullscreenGesture(image, 'touchend');
-          }
-
-          bindFullscreenGesture(document, 'click');
-          bindFullscreenGesture(document, 'keydown');
-          bindFullscreenGesture(document, 'touchend');
-
-          startTimers();
-          loadProfile(true);
+        state.heartbeatTimer = window.setInterval(function () {
           sendHeartbeat();
-          tryEnterFullscreen(false);
+        }, 30000);
+
+        state.profileSyncTimer = window.setInterval(function () {
+          loadProfile(false);
+        }, 60000);
+      }
+
+      function init() {
+        state.profileSlug = getProfileSlug();
+        state.token = parseQueryValue('token');
+
+        if (state.token) {
+          storeToken(state.profileSlug, state.token);
+          stripTokenFromUrl();
+        } else {
+          state.token = getStoredToken(state.profileSlug);
         }
 
-        init();
-      })();
-    </script>
-  </body>
+        if (video) {
+          video.autoplay = true;
+          bindFullscreenGesture(video, 'click');
+          bindFullscreenGesture(video, 'touchend');
+          video.onended = function () {
+            advancePlayback('Dang chuyen sang noi dung tiep theo.');
+          };
+          video.onerror = function () {
+            clearEndedSafetyTimer();
+            clearPlaybackStartTimer();
+            clearImageAdvanceTimer();
+            if (!state.currentProfile || !state.currentProfile.videos || state.currentProfile.videos.length < 2) {
+              setStatus('Khong phat duoc noi dung hien tai. Dang tai lai playlist...');
+              window.setTimeout(function () {
+                loadProfile(false);
+              }, 5000);
+              return;
+            }
+
+            nextVideo('Noi dung hien tai loi. Dang bo qua muc tiep theo.');
+          };
+          video.onloadedmetadata = function () {
+            startEndedSafetyTimer(video.duration);
+            tryEnterFullscreen(false);
+            setStatus('Dang phat noi dung.');
+            safePlay();
+          };
+          video.onloadeddata = function () {
+            safePlay();
+          };
+          video.onplaying = function () {
+            clearPlaybackStartTimer();
+            state.playbackRetryCount = 0;
+            startEndedSafetyTimer(video.duration);
+          };
+          video.ontimeupdate = function () {
+            if (video.currentTime > 0.2) {
+              clearPlaybackStartTimer();
+            }
+          };
+        }
+
+        if (image) {
+          bindFullscreenGesture(image, 'click');
+          bindFullscreenGesture(image, 'touchend');
+        }
+
+        bindFullscreenGesture(document, 'click');
+        bindFullscreenGesture(document, 'keydown');
+        bindFullscreenGesture(document, 'touchend');
+
+        startTimers();
+        loadProfile(true);
+        sendHeartbeat();
+        tryEnterFullscreen(false);
+      }
+
+      init();
+    })();
+  </script>
+</body>
+
 </html>
