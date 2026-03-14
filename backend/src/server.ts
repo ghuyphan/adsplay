@@ -1,6 +1,4 @@
-import fs from 'node:fs';
-import { createServer as createHttpServer } from 'node:http';
-import { createServer as createHttpsServer } from 'node:https';
+import { createServer } from 'node:http';
 import { createApp } from './app';
 import { getConfig } from './config';
 import { logError, logInfo } from './logger';
@@ -8,16 +6,7 @@ import { getSystemStatus } from './services/system.service';
 
 const config = getConfig();
 const app = createApp();
-const server = config.httpsEnabled
-    ? createHttpsServer(
-          {
-              cert: fs.readFileSync(config.httpsCertFile!, 'utf8'),
-              key: fs.readFileSync(config.httpsKeyFile!, 'utf8'),
-          },
-          app,
-      )
-    : createHttpServer(app);
-const protocol = config.httpsEnabled ? 'https' : 'http';
+const server = createServer(app);
 
 server.on('error', (error: NodeJS.ErrnoException) => {
     if (error.code === 'EADDRINUSE') {
@@ -38,10 +27,10 @@ server.on('error', (error: NodeJS.ErrnoException) => {
 });
 
 server.listen(config.port, '0.0.0.0', () => {
-    logInfo('server.started', { port: config.port, protocol });
+    logInfo('server.started', { port: config.port });
 
     const status = getSystemStatus();
     for (const address of status.localIps) {
-        logInfo('server.available', { url: `${protocol}://${address}:${config.port}` });
+        logInfo('server.available', { url: `http://${address}:${config.port}` });
     }
 });

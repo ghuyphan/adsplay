@@ -48,9 +48,6 @@ export interface AppConfig {
     adminUsername: string;
     dbFile: string;
     frontendDistDir: string;
-    httpsCertFile: string | null;
-    httpsEnabled: boolean;
-    httpsKeyFile: string | null;
     isProduction: boolean;
     jwtSecret: string;
     mediaProcessingEnabled: boolean;
@@ -72,23 +69,6 @@ const parsePort = (input: string | undefined) => {
     return parsed;
 };
 
-const parseBoolean = (input: string | undefined, defaultValue: boolean) => {
-    if (input === undefined) {
-        return defaultValue;
-    }
-
-    const normalized = input.trim().toLowerCase();
-    if (['true', '1', 'yes', 'on'].includes(normalized)) {
-        return true;
-    }
-
-    if (['false', '0', 'no', 'off'].includes(normalized)) {
-        return false;
-    }
-
-    throw new Error(`Invalid boolean value: ${input}`);
-};
-
 export const getConfig = (): AppConfig => {
     if (cachedConfig) {
         return cachedConfig;
@@ -99,7 +79,6 @@ export const getConfig = (): AppConfig => {
     const adminUsername = process.env.ADMIN_USERNAME || DEFAULT_ADMIN_USERNAME;
     const adminPassword = process.env.ADMIN_PASSWORD || DEFAULT_ADMIN_PASSWORD;
     const isProduction = process.env.NODE_ENV === 'production';
-    const httpsEnabled = parseBoolean(process.env.HTTPS_ENABLED, false);
     const maxUploadSizeMb = Number(process.env.MAX_UPLOAD_SIZE_MB || '2048');
     const mediaProcessingEnabled = process.env.MEDIA_TRANSCODE_ENABLED !== 'false';
     const resumableChunkSizeMb = Number(process.env.RESUMABLE_CHUNK_SIZE_MB || '8');
@@ -128,12 +107,6 @@ export const getConfig = (): AppConfig => {
     const dbFile = process.env.DB_FILE || path.join(__dirname, '../db.json');
     const frontendDistDir =
         process.env.FRONTEND_DIST_DIR || path.join(__dirname, '../../frontend/dist/frontend/browser');
-    const httpsKeyFile = process.env.HTTPS_KEY_FILE?.trim() || null;
-    const httpsCertFile = process.env.HTTPS_CERT_FILE?.trim() || null;
-
-    if (httpsEnabled && (!httpsKeyFile || !httpsCertFile)) {
-        throw new Error('HTTPS_KEY_FILE and HTTPS_CERT_FILE must be set when HTTPS_ENABLED=true.');
-    }
 
     fs.ensureDirSync(uploadsDir);
     fs.ensureDirSync(processedUploadsDir);
@@ -144,9 +117,6 @@ export const getConfig = (): AppConfig => {
         adminUsername,
         dbFile,
         frontendDistDir,
-        httpsCertFile,
-        httpsEnabled,
-        httpsKeyFile,
         isProduction,
         jwtSecret,
         mediaProcessingEnabled,
