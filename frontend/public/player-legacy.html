@@ -9,12 +9,6 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <title>AdPlay Legacy Player</title>
 
-  <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#000000">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="AdPlay Legacy">
-
   <style>
     html,
     body {
@@ -89,13 +83,6 @@
   </div>
 
   <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function () {
-        navigator.serviceWorker.register('/sw.js').catch(function (err) {
-          console.log('ServiceWorker registration failed: ', err);
-        });
-      });
-    }
     (function () {
       var app = document.getElementById('app');
       var video = document.getElementById('video');
