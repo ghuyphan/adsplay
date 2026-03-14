@@ -375,6 +375,9 @@ Example:
 
 ```env
 PORT=3000
+HTTPS_ENABLED=false
+HTTPS_KEY_FILE=
+HTTPS_CERT_FILE=
 JWT_SECRET=change-me
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=admin
@@ -390,6 +393,15 @@ RESUMABLE_CHUNK_SIZE_MB=8
 
 - `JWT_SECRET`
   Secret used for admin auth tokens
+
+- `HTTPS_ENABLED`
+  Serve AdPlay over HTTPS when set to `true`
+
+- `HTTPS_KEY_FILE`
+  Path to the TLS private key file used when HTTPS is enabled
+
+- `HTTPS_CERT_FILE`
+  Path to the TLS certificate file used when HTTPS is enabled
 
 - `ADMIN_USERNAME`
   Default admin username
@@ -413,6 +425,38 @@ RESUMABLE_CHUNK_SIZE_MB=8
 - `FRONTEND_DIST_DIR`
 
 These are mostly useful for tests, custom deployments, or forks.
+
+### Local HTTPS for PWA install in Chrome
+
+Chrome desktop only shows the PWA install UI on `https://...` or `http://localhost`.
+If you want installability on a LAN IP like `https://192.168.1.50:3000`, run AdPlay with a trusted local certificate.
+
+One practical option is `mkcert`.
+
+macOS:
+
+```bash
+brew install mkcert
+mkcert -install
+cd backend
+mkcert -key-file localhost-key.pem -cert-file localhost-cert.pem localhost 127.0.0.1 ::1 192.168.1.50
+```
+
+Then set these values in `backend/.env`:
+
+```env
+HTTPS_ENABLED=true
+HTTPS_KEY_FILE=/absolute/path/to/ad-play/backend/localhost-key.pem
+HTTPS_CERT_FILE=/absolute/path/to/ad-play/backend/localhost-cert.pem
+```
+
+Replace `192.168.1.50` with your real LAN IP before generating the certificate.
+
+Notes:
+
+- The IP must be included when you generate the certificate, or browsers will reject it for that address.
+- Other devices must trust the same local CA/certificate chain if you want the TV or tablet browser to see the site as secure.
+- Once HTTPS is enabled, the launcher opens and prints `https://...` links automatically.
 
 ---
 

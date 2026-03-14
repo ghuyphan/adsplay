@@ -17,6 +17,9 @@ const backendDistEntry = path.join(backendDir, 'dist', 'server.js');
 const frontendIndexFile = path.join(frontendDir, 'dist', 'frontend', 'browser', 'index.html');
 const knownEnvKeys = [
     'PORT',
+    'HTTPS_ENABLED',
+    'HTTPS_KEY_FILE',
+    'HTTPS_CERT_FILE',
     'JWT_SECRET',
     'ADMIN_USERNAME',
     'ADMIN_PASSWORD',
@@ -102,6 +105,9 @@ const ensureManagedEnvFile = () => {
     };
 
     ensureValue('PORT', '3000');
+    ensureValue('HTTPS_ENABLED', 'false');
+    ensureValue('HTTPS_KEY_FILE', '');
+    ensureValue('HTTPS_CERT_FILE', '');
     ensureValue('JWT_SECRET', crypto.randomBytes(32).toString('hex'), isPlaceholderSecret(next.JWT_SECRET));
     ensureValue('ADMIN_USERNAME', 'admin');
     ensureValue('ADMIN_PASSWORD', 'admin');
@@ -291,23 +297,31 @@ const getLocalIpv4Addresses = () => {
     return addresses;
 };
 
-const writeAccessFile = ({ adminPassword, adminUsername, localIps, port }) => {
+const parseBooleanEnv = (value, defaultValue = false) => {
+    if (typeof value !== 'string' || value.trim() === '') {
+        return defaultValue;
+    }
+
+    return ['true', '1', 'yes', 'on'].includes(value.trim().toLowerCase());
+};
+
+const writeAccessFile = ({ adminPassword, adminUsername, localIps, port, protocol }) => {
     const lines = [
         'AdPlay Access',
         '',
-        `Admin dashboard (this computer): http://localhost:${port}/admin`,
+        `Admin dashboard (this computer): ${protocol}://localhost:${port}/admin`,
         ...localIps.map((ip, index) => {
             const label = index === 0 ? 'Admin dashboard (same network)' : 'Admin dashboard (alternate IP)';
-            return `${label}: http://${ip}:${port}/admin`;
+            return `${label}: ${protocol}://${ip}:${port}/admin`;
         }),
         '',
         ...(
             localIps.length
                 ? localIps.map((ip, index) => {
                     const label = index === 0 ? 'Player link for TVs/tablets' : 'Player link (alternate IP)';
-                    return `${label}: http://${ip}:${port}/player`;
+                    return `${label}: ${protocol}://${ip}:${port}/player`;
                 })
-                : [`Player link: http://localhost:${port}/player`]
+                : [`Player link: ${protocol}://localhost:${port}/player`]
         ),
         '',
         'Login',
@@ -431,6 +445,7 @@ const main = async () => {
     const envState = ensureManagedEnvFile();
     const port = Number.parseInt(envState.values.PORT || '3000', 10) || 3000;
     const localIps = getLocalIpv4Addresses();
+    const protocol = parseBooleanEnv(envState.values.HTTPS_ENABLED, false) ? 'https' : 'http';
 
     if (envState.created) {
         console.log(`Created ${path.relative(rootDir, envFilePath)} with local app settings.`);
@@ -443,6 +458,7 @@ const main = async () => {
         adminUsername: envState.values.ADMIN_USERNAME,
         localIps,
         port,
+        protocol,
     });
     console.log(`Wrote access details to ${path.relative(rootDir, accessFilePath)}.`);
 
@@ -479,9 +495,9 @@ const main = async () => {
     }
 
     const preferredHost = localIps[0] || 'localhost';
-    const adminUrl = `http://${preferredHost}:${port}/admin`;
-    const localAdminUrl = `http://localhost:${port}/admin`;
-    const playerUrls = localIps.map((ip) => `http://${ip}:${port}/player`);
+    const adminUrl = `${protocol}://${preferredHost}:${port}/admin`;
+    const localAdminUrl = `${protocol}://localhost:${port}/admin`;
+    const playerUrls = localIps.map((ip) => `${protocol}://${ip}:${port}/player`);
 
     logSection('Starting AdPlay');
     console.log(`Admin:  ${adminUrl}`);
