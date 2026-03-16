@@ -40,6 +40,17 @@
       object-fit: contain;
     }
 
+    .legacy-fit {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: auto;
+      height: auto;
+      max-width: 100%;
+      max-height: 100%;
+      transform: translate(-50%, -50%);
+    }
+
     #empty {
       position: absolute;
       top: 50%;
@@ -175,6 +186,67 @@
         } catch (error) {
           return String(value || '');
         }
+      }
+
+      function parseJsonFallback(text) {
+        if (!text) {
+          return null;
+        }
+
+        try {
+          return (new Function('return (' + text + ');'))();
+        } catch (error) {
+          return null;
+        }
+      }
+
+      function supportsObjectFit() {
+        return !!(document.documentElement && document.documentElement.style && typeof document.documentElement.style.objectFit !== 'undefined');
+      }
+
+      function applyLegacyContain(element, mediaWidth, mediaHeight) {
+        var containerWidth;
+        var containerHeight;
+        var width;
+        var height;
+        var ratio;
+
+        if (!element || !app || !mediaWidth || !mediaHeight) {
+          return;
+        }
+
+        if (supportsObjectFit()) {
+          return;
+        }
+
+        containerWidth = app.clientWidth || app.offsetWidth || 0;
+        containerHeight = app.clientHeight || app.offsetHeight || 0;
+        if (!containerWidth || !containerHeight) {
+          return;
+        }
+
+        ratio = mediaWidth / mediaHeight;
+        width = containerWidth;
+        height = Math.round(width / ratio);
+
+        if (height > containerHeight) {
+          height = containerHeight;
+          width = Math.round(height * ratio);
+        }
+
+        element.className = (element.className + ' legacy-fit').replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
+        element.style.width = String(width) + 'px';
+        element.style.height = String(height) + 'px';
+      }
+
+      function resetLegacyContain(element) {
+        if (!element) {
+          return;
+        }
+
+        element.className = element.className.replace(/\blegacy-fit\b/g, '').replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
+        element.style.width = '';
+        element.style.height = '';
       }
 
       function getPlayerTokenStorageKey(slug) {
@@ -322,7 +394,7 @@
         try {
           return JSON.parse(text);
         } catch (error) {
-          return null;
+          return parseJsonFallback(text);
         }
       }
 
@@ -474,22 +546,25 @@
       }
 
       function bindFullscreenGesture(target, eventName) {
+        var handler;
+
         if (!target) {
           return;
         }
 
-        if (typeof target.addEventListener === 'function') {
-          target.addEventListener(
-            eventName,
-            function (event) {
-              if (eventName === 'keydown' && !isActivationKey(event)) {
-                return;
-              }
+        handler = function (event) {
+          event = event || window.event;
+          if (eventName === 'keydown' && !isActivationKey(event)) {
+            return;
+          }
 
-              handleInteractionGesture();
-            },
-            false
-          );
+          handleInteractionGesture();
+        };
+
+        if (typeof target.addEventListener === 'function') {
+          target.addEventListener(eventName, handler, false);
+        } else if (typeof target.attachEvent === 'function') {
+          target.attachEvent('on' + eventName, handler);
         }
       }
 
@@ -622,6 +697,7 @@
 
         if (image) {
           image.onload = function () {
+            applyLegacyContain(image, image.naturalWidth || image.width, image.naturalHeight || image.height);
             tryEnterFullscreen(false);
           };
           image.src = src;
@@ -694,7 +770,7 @@
           }
 
           playResult = video.play();
-          if (playResult && typeof playResult.then === 'function') {
+          if (playResult && typeof playResult.catch === 'function') {
             playResult.catch(function () {
               video.muted = true;
               setWarning('TV nay yeu cau tu dong tat tieng de bat dau phat.');
@@ -770,6 +846,8 @@
         }
 
         hideEmpty();
+        resetLegacyContain(video);
+        resetLegacyContain(image);
         showElement(video, !isImageItem(currentVideo));
         showElement(image, isImageItem(currentVideo));
         nextKey = String(currentVideo.id) + ':' + String(currentVideo.updatedAt || '');
@@ -952,6 +1030,7 @@
             nextVideo('Noi dung hien tai loi. Dang bo qua muc tiep theo.');
           };
           video.onloadedmetadata = function () {
+            applyLegacyContain(video, video.videoWidth, video.videoHeight);
             startEndedSafetyTimer(video.duration);
             tryEnterFullscreen(false);
             setStatus('Dang phat noi dung.');
