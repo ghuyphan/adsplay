@@ -101,6 +101,7 @@
         imageAdvanceTimer: null,
         playbackStartTimer: null,
         playbackRetryCount: 0,
+        playVerificationTimer: null,
         profileSlug: '',
         profileSyncTimer: null,
         token: '',
@@ -513,6 +514,13 @@
         }
       }
 
+      function clearPlayVerificationTimer() {
+        if (state.playVerificationTimer) {
+          window.clearTimeout(state.playVerificationTimer);
+          state.playVerificationTimer = null;
+        }
+      }
+
       function startEndedSafetyTimer(durationSeconds) {
         clearEndedSafetyTimer();
 
@@ -559,6 +567,7 @@
         clearPlaybackStartTimer();
         clearEndedSafetyTimer();
         clearImageAdvanceTimer();
+        clearPlayVerificationTimer();
 
         try {
           video.pause();
@@ -596,6 +605,7 @@
         clearPlaybackStartTimer();
         clearEndedSafetyTimer();
         clearImageAdvanceTimer();
+        clearPlayVerificationTimer();
 
         if (video) {
           try {
@@ -633,6 +643,7 @@
         clearEndedSafetyTimer();
         clearPlaybackStartTimer();
         clearImageAdvanceTimer();
+        clearPlayVerificationTimer();
 
         if (!shouldForceReload) {
           try {
@@ -668,13 +679,21 @@
       }
 
       function safePlay() {
+        var playResult;
+
         if (!video) {
           return;
         }
 
         try {
           tryEnterFullscreen(false);
-          var playResult = video.play();
+          video.defaultMuted = true;
+          video.muted = true;
+          if (typeof video.setAttribute === 'function') {
+            video.setAttribute('muted', 'muted');
+          }
+
+          playResult = video.play();
           if (playResult && typeof playResult.then === 'function') {
             playResult.catch(function () {
               video.muted = true;
@@ -686,6 +705,28 @@
               }
             });
           }
+
+          clearPlayVerificationTimer();
+          state.playVerificationTimer = window.setTimeout(function () {
+            if (!video) {
+              return;
+            }
+
+            if (!video.paused || video.currentTime > 0) {
+              return;
+            }
+
+            try {
+              video.defaultMuted = true;
+              video.muted = true;
+              if (typeof video.setAttribute === 'function') {
+                video.setAttribute('muted', 'muted');
+              }
+              video.play();
+            } catch (error) {
+              setWarning('Khong the tu dong phat video tren trinh duyet nay.');
+            }
+          }, 1200);
         } catch (error) {
           setWarning('Khong the tu dong phat video tren trinh duyet nay.');
         }
@@ -886,6 +927,10 @@
 
         if (video) {
           video.autoplay = true;
+          video.defaultMuted = true;
+          video.muted = true;
+          video.setAttribute('muted', 'muted');
+          video.setAttribute('preload', 'auto');
           bindFullscreenGesture(video, 'click');
           bindFullscreenGesture(video, 'touchend');
           video.onended = function () {
@@ -895,6 +940,7 @@
             clearEndedSafetyTimer();
             clearPlaybackStartTimer();
             clearImageAdvanceTimer();
+            clearPlayVerificationTimer();
             if (!state.currentProfile || !state.currentProfile.videos || state.currentProfile.videos.length < 2) {
               setStatus('Khong phat duoc noi dung hien tai. Dang tai lai playlist...');
               window.setTimeout(function () {
@@ -915,12 +961,17 @@
             safePlay();
           };
           video.onplaying = function () {
+            clearPlayVerificationTimer();
             clearPlaybackStartTimer();
             state.playbackRetryCount = 0;
             startEndedSafetyTimer(video.duration);
           };
+          video.oncanplay = function () {
+            safePlay();
+          };
           video.ontimeupdate = function () {
             if (video.currentTime > 0.2) {
+              clearPlayVerificationTimer();
               clearPlaybackStartTimer();
             }
           };
